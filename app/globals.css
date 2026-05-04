@@ -3036,6 +3036,12 @@ body {
   background: #f1f6ff;
 }
 
+.generation-status.finalizing {
+  grid-template-columns: 1fr;
+  border-color: #b9d9cc;
+  background: #f1f8f5;
+}
+
 .generation-status-main {
   display: flex;
   align-items: flex-start;
@@ -3111,6 +3117,52 @@ body {
 .generation-steps span.completed {
   color: #176b57;
   background: #eef7f3;
+}
+
+.preview-render-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid #d7e4ff;
+  border-radius: 8px;
+  background: #f1f6ff;
+  color: #244a91;
+}
+
+.preview-render-status.compact {
+  align-items: center;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.preview-render-status strong,
+.preview-render-status span {
+  display: block;
+}
+
+.preview-render-status strong {
+  color: #17212b;
+}
+
+.preview-render-status span {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.preview-render-spinner {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 2px solid #c9d8f8;
+  border-top-color: #245fca;
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
+  flex: 0 0 auto;
 }
 
 .paper-body-editing {

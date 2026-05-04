@@ -890,23 +890,35 @@ function DocumentGenerationStatus({ documentTitle }: { documentTitle: string }) 
       "전문 문서 구조와 필수 표를 구성하고 있습니다.",
       "실무자가 검토할 수 있는 본문을 작성하고 있습니다.",
       "승인란, 보존기록, 후속 실행 항목을 점검하고 있습니다.",
-      "문서 미리보기에 맞게 정리하고 있습니다."
+      "문서 미리보기를 준비하고 있습니다."
     ],
     []
   );
   const [stepIndex, setStepIndex] = useState(0);
+  const isFinalStep = stepIndex === steps.length - 1;
 
   useEffect(() => {
     setStepIndex(0);
-    const interval = window.setInterval(() => {
-      setStepIndex((current) => (current + 1) % steps.length);
-    }, 1400);
+  }, [documentTitle]);
 
-    return () => window.clearInterval(interval);
-  }, [documentTitle, steps]);
+  useEffect(() => {
+    if (isFinalStep) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setStepIndex((current) => Math.min(current + 1, steps.length - 1));
+    }, 2600);
+
+    return () => window.clearTimeout(timeout);
+  }, [isFinalStep, stepIndex, steps.length]);
 
   return (
-    <div className="generation-status" role="status" aria-live="polite">
+    <div
+      className={isFinalStep ? "generation-status finalizing" : "generation-status"}
+      role="status"
+      aria-live="polite"
+    >
       <div className="generation-status-main">
         <div className="generation-spinner">
           <Loader2 className="spin" size={22} aria-hidden />
@@ -916,25 +928,29 @@ function DocumentGenerationStatus({ documentTitle }: { documentTitle: string }) 
           <span>{steps[stepIndex]}</span>
         </div>
       </div>
-      <div className="generation-progress" aria-hidden>
-        <span style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
-      </div>
-      <div className="generation-steps">
-        {steps.map((step, index) => (
-          <span
-            className={
-              index === stepIndex
-                ? "active"
-                : index < stepIndex
-                  ? "completed"
-                  : ""
-            }
-            key={step}
-          >
-            {step}
-          </span>
-        ))}
-      </div>
+      {!isFinalStep && (
+        <>
+          <div className="generation-progress" aria-hidden>
+            <span style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
+          </div>
+          <div className="generation-steps">
+            {steps.slice(0, -1).map((step, index) => (
+              <span
+                className={
+                  index === stepIndex
+                    ? "active"
+                    : index < stepIndex
+                      ? "completed"
+                      : ""
+                }
+                key={step}
+              >
+                {step}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

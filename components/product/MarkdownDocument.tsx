@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FocusEvent } from "react";
 import { PenLine, Save, X } from "lucide-react";
 import type { SavedDocument } from "@/lib/isoData";
@@ -44,6 +44,12 @@ type ListBlock =
 
 type Block = TableBlock | HeadingBlock | ParagraphBlock | ListBlock;
 
+const initialPreviewBlockCount = 40;
+const previewRenderBatchSize = 35;
+const previewParseBatchSize = 24;
+const previewParseBudgetMs = 10;
+const previewTableRowLimit = 80;
+
 export function MarkdownDocument({
   title,
   content,
@@ -55,8 +61,82 @@ export function MarkdownDocument({
 }: MarkdownDocumentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editableBlocks, setEditableBlocks] = useState<Block[]>([]);
-  const normalizedContent = normalizeGeneratedMarkdown(content);
-  const blocks = parseMarkdown(normalizedContent);
+  const [previewBlocks, setPreviewBlocks] = useState<Block[]>([]);
+  const [visibleBlockCount, setVisibleBlockCount] = useState(
+    initialPreviewBlockCount
+  );
+  const [isPreparingPreview, setIsPreparingPreview] = useState(false);
+  const normalizedContent = useMemo(
+    () => normalizeGeneratedMarkdown(content),
+    [content]
+  );
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+
+    let isCancelled = false;
+    const lines = normalizedContent.split(/\r?\n/);
+    const nextBlocks: Block[] = [];
+    let lineIndex = 0;
+
+    setPreviewBlocks([]);
+    setVisibleBlockCount(initialPreviewBlockCount);
+    setIsPreparingPreview(true);
+
+    function parseBatch() {
+      const startedAt = performance.now();
+      let parsedBlocks = 0;
+
+      while (
+        lineIndex < lines.length &&
+        parsedBlocks < previewParseBatchSize &&
+        performance.now() - startedAt < previewParseBudgetMs
+      ) {
+        const parsed = parseNextBlock(lines, lineIndex);
+        lineIndex = parsed.nextIndex;
+
+        if (parsed.block) {
+          nextBlocks.push(parsed.block);
+          parsedBlocks += 1;
+        }
+      }
+
+      if (isCancelled) {
+        return;
+      }
+
+      setPreviewBlocks([...nextBlocks]);
+
+      if (lineIndex < lines.length) {
+        window.setTimeout(parseBatch, 16);
+        return;
+      }
+
+      setIsPreparingPreview(false);
+    }
+
+    window.setTimeout(parseBatch, 0);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isEditing, normalizedContent]);
+
+  useEffect(() => {
+    if (isEditing || visibleBlockCount >= previewBlocks.length) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setVisibleBlockCount((current) =>
+        Math.min(current + previewRenderBatchSize, previewBlocks.length)
+      );
+    }, 90);
+
+    return () => window.clearTimeout(timeout);
+  }, [isEditing, previewBlocks.length, visibleBlockCount]);
 
   function beginEditing() {
     setEditableBlocks(prepareEditableBlocks(parseMarkdown(normalizedContent)));
@@ -243,7 +323,19 @@ export function MarkdownDocument({
       </header>
 
       <div className={isEditing ? "paper-body paper-body-editing" : "paper-body"}>
-        {(isEditing ? editableBlocks : blocks).map((block, index) =>
+        {!isEditing && isPreparingPreview && previewBlocks.length === 0 && (
+          <div className="preview-render-status">
+            <span className="preview-render-spinner" aria-hidden />
+            <div>
+              <strong>문서 미리보기를 준비하고 있습니다.</strong>
+              <span>긴 문서는 화면이 멈추지 않도록 나누어 표시합니다.</span>
+            </div>
+          </div>
+        )}
+        {(isEditing
+          ? editableBlocks
+          : previewBlocks.slice(0, visibleBlockCount)
+        ).map((block, index) =>
           isEditing ? (
             <EditableMarkdownBlock
               block={block}
@@ -259,6 +351,17 @@ export function MarkdownDocument({
             <MarkdownBlock block={block} key={`${block.type}-${index}`} />
           )
         )}
+        {!isEditing &&
+          (isPreparingPreview || visibleBlockCount < previewBlocks.length) &&
+          previewBlocks.length > 0 && (
+            <div className="preview-render-status compact">
+              <span className="preview-render-spinner" aria-hidden />
+              <span>
+                미리보기 표시 중 {Math.min(visibleBlockCount, previewBlocks.length)}
+                /{previewBlocks.length}
+              </span>
+            </div>
+          )}
       </div>
     </article>
   );
@@ -290,6 +393,8 @@ function MarkdownBlock({ block }: { block: Block }) {
   if (block.type === "table") {
     const [header, separator, ...body] = block.rows;
     const bodyRows = isSeparatorRow(separator) ? body : block.rows.slice(1);
+    const visibleRows = bodyRows.slice(0, previewTableRowLimit);
+    const hiddenRowCount = Math.max(bodyRows.length - visibleRows.length, 0);
 
     return (
       <div className="paper-table-wrap">
@@ -304,13 +409,21 @@ function MarkdownBlock({ block }: { block: Block }) {
             </thead>
           )}
           <tbody>
-            {bodyRows.map((row, rowIndex) => (
-              <tr key={`${row.join("-")}-${rowIndex}`}>
+            {visibleRows.map((row, rowIndex) => (
+              <tr key={`row-${rowIndex}`}>
                 {row.map((cell, cellIndex) => (
-                  <td key={`${cell}-${cellIndex}`}>{cell}</td>
+                  <td key={`cell-${rowIndex}-${cellIndex}`}>{cell}</td>
                 ))}
               </tr>
             ))}
+            {hiddenRowCount > 0 && (
+              <tr>
+                <td colSpan={header?.length ?? 1}>
+                  긴 표의 나머지 {hiddenRowCount}개 행은 저장 문서에는 포함되며,
+                  미리보기 안정성을 위해 화면 표시만 줄였습니다.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -486,76 +599,90 @@ function parseMarkdown(content: string) {
   let index = 0;
 
   while (index < lines.length) {
-    const line = lines[index].trim();
+    const parsed = parseNextBlock(lines, index);
+    index = parsed.nextIndex;
 
-    if (!line) {
-      index += 1;
-      continue;
+    if (parsed.block) {
+      blocks.push(parsed.block);
     }
-
-    if (line.startsWith("#")) {
-      const match = line.match(/^(#{1,3})\s+(.*)$/);
-      if (match) {
-        blocks.push({
-          type: "heading",
-          level: match[1].length,
-          text: match[2].trim()
-        });
-        index += 1;
-        continue;
-      }
-    }
-
-    if (line.startsWith("|") && line.endsWith("|")) {
-      const rows: string[][] = [];
-      while (
-        index < lines.length &&
-        lines[index].trim().startsWith("|") &&
-        lines[index].trim().endsWith("|")
-      ) {
-        rows.push(parseTableRow(lines[index]));
-        index += 1;
-      }
-      blocks.push({ type: "table", rows });
-      continue;
-    }
-
-    if (line.startsWith("- ")) {
-      const items: string[] = [];
-      while (index < lines.length && lines[index].trim().startsWith("- ")) {
-        items.push(lines[index].trim().slice(2));
-        index += 1;
-      }
-      blocks.push({ type: "list", items });
-      continue;
-    }
-
-    if (/^\d+\.\s+/.test(line)) {
-      const items: string[] = [];
-      while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
-        items.push(lines[index].trim().replace(/^\d+\.\s+/, ""));
-        index += 1;
-      }
-      blocks.push({ type: "ordered-list", items });
-      continue;
-    }
-
-    const paragraph: string[] = [];
-    while (
-      index < lines.length &&
-      lines[index].trim() &&
-      !lines[index].trim().startsWith("#") &&
-      !lines[index].trim().startsWith("|") &&
-      !lines[index].trim().startsWith("- ") &&
-      !/^\d+\.\s+/.test(lines[index].trim())
-    ) {
-      paragraph.push(lines[index].trim());
-      index += 1;
-    }
-    blocks.push({ type: "paragraph", text: paragraph.join(" ") });
   }
 
   return blocks;
+}
+
+function parseNextBlock(lines: string[], startIndex: number) {
+  let index = startIndex;
+  const line = lines[index]?.trim() ?? "";
+
+  if (!line) {
+    return { block: undefined, nextIndex: index + 1 };
+  }
+
+  if (line.startsWith("#")) {
+    const match = line.match(/^(#{1,3})\s+(.*)$/);
+    if (match) {
+      return {
+        block: {
+          type: "heading" as const,
+          level: match[1].length,
+          text: match[2].trim()
+        },
+        nextIndex: index + 1
+      };
+    }
+  }
+
+  if (line.startsWith("|") && line.endsWith("|")) {
+    const rows: string[][] = [];
+    while (
+      index < lines.length &&
+      lines[index].trim().startsWith("|") &&
+      lines[index].trim().endsWith("|")
+    ) {
+      rows.push(parseTableRow(lines[index]));
+      index += 1;
+    }
+
+    return { block: { type: "table" as const, rows }, nextIndex: index };
+  }
+
+  if (line.startsWith("- ")) {
+    const items: string[] = [];
+    while (index < lines.length && lines[index].trim().startsWith("- ")) {
+      items.push(lines[index].trim().slice(2));
+      index += 1;
+    }
+
+    return { block: { type: "list" as const, items }, nextIndex: index };
+  }
+
+  if (/^\d+\.\s+/.test(line)) {
+    const items: string[] = [];
+    while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
+      items.push(lines[index].trim().replace(/^\d+\.\s+/, ""));
+      index += 1;
+    }
+
+    return { block: { type: "ordered-list" as const, items }, nextIndex: index };
+  }
+
+  const paragraph: string[] = [];
+  while (
+    index < lines.length &&
+    lines[index].trim() &&
+    !lines[index].trim().startsWith("#") &&
+    !lines[index].trim().startsWith("|") &&
+    !lines[index].trim().startsWith("- ") &&
+    !/^\d+\.\s+/.test(lines[index].trim())
+  ) {
+    paragraph.push(lines[index].trim());
+    index += 1;
+  }
+
+  return {
+    block: { type: "paragraph" as const, text: paragraph.join(" ") },
+    nextIndex: Math.max(index, startIndex + 1)
+  };
 }
 
 function prepareEditableBlocks(blocks: Block[]) {
