@@ -76,7 +76,24 @@ export const companyProfile = {
   mainProducts: "",
   site: "",
   customers: "",
-  outsource: ""
+  outsource: "",
+  certificationScope: "",
+  excludedScope: "",
+  keyProcesses: "",
+  processOwners: "",
+  qualityManager: "",
+  documentManager: "",
+  customerRequirements: "",
+  legalRequirements: "",
+  keySuppliers: "",
+  supplierEvaluationCriteria: "",
+  qualityPolicyDirection: "",
+  qualityObjectives: "",
+  recordRetention: "",
+  climateIssues: "",
+  nonconformityExamples: "",
+  internalAuditSchedule: "",
+  managementReviewCycle: ""
 };
 
 export const roadmapSteps: RoadmapStep[] = [

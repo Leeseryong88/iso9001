@@ -1,4 +1,4 @@
-import { ClipboardCheck, FileCheck2, ShieldCheck } from "lucide-react";
+import { Building2, ClipboardCheck, FileCheck2, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { DocumentBlueprint } from "@/lib/documentBlueprints";
 import type { DocumentDefinition } from "@/lib/isoData";
@@ -48,6 +48,13 @@ export function DocumentGuidance({
           icon={ClipboardCheck}
           title="보존 기록"
           items={blueprint.recordsToRetain.slice(0, 4)}
+        />
+        <GuidanceCard
+          icon={Building2}
+          title="회사정보 참조"
+          items={blueprint.companyReferences
+            .map((reference) => `${reference.label}: ${reference.instruction}`)
+            .slice(0, 4)}
         />
       </div>
 

@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import type { LucideIcon } from "lucide-react";
 import {
   Archive,
-  Brain,
   Building2,
   CheckCircle2,
   ChevronRight,
@@ -31,7 +30,7 @@ import {
 import { DocumentGuidance } from "@/components/product/DocumentGuidance";
 import { MarkdownDocument } from "@/components/product/MarkdownDocument";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
-import { useIsoWorkspace } from "@/hooks/useIsoWorkspace";
+import { useIsoWorkspace, type GenerateState } from "@/hooks/useIsoWorkspace";
 import { getDocumentBlueprint } from "@/lib/documentBlueprints";
 import type { CompanyProfile } from "@/lib/documentGenerator";
 import {
@@ -45,7 +44,7 @@ import {
 } from "@/lib/isoData";
 
 type View = "overview" | "studio" | "actions" | "vault" | "company";
-type StudioTab = "questions" | "editor" | "preview";
+type StudioTab = "questions" | "preview";
 
 const navItems: Array<{ id: View; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "준비 현황", icon: LayoutDashboard },
@@ -243,7 +242,7 @@ function AuthenticatedWorkspace({
             }
             onDraft={(value) => workspace.setDraft(selectedDocument.id, value)}
             onGenerate={() => workspace.generateDocument(selectedDocument.id)}
-            onSave={() => workspace.saveDocument(selectedDocument.id)}
+            onSave={(content) => workspace.saveDocument(selectedDocument.id, content)}
           />
         )}
 
@@ -659,12 +658,12 @@ function DocumentStudio({
   documentStatuses: Record<string, Status>;
   answers: Record<string, string>;
   draft: string;
-  generateState: { isGenerating: boolean; notice: string };
+  generateState: GenerateState;
   onSelectDocument: (id: string) => void;
   onAnswer: (questionId: string, value: string) => void;
   onDraft: (value: string) => void;
   onGenerate: () => void;
-  onSave: () => void;
+  onSave: (content?: string) => void;
 }) {
   const [filter, setFilter] = useState("전체");
   const [query, setQuery] = useState("");
@@ -690,6 +689,16 @@ function DocumentStudio({
     (question) => answers[question.id]?.trim()
   ).length;
   const blueprint = useMemo(() => getDocumentBlueprint(document), [document]);
+  const isGeneratingCurrentDocument =
+    generateState.isGenerating && generateState.documentId === document.id;
+  const showGenerationNotice =
+    Boolean(generateState.notice) &&
+    (!generateState.documentId || generateState.documentId === document.id);
+  const generateButtonLabel = isGeneratingCurrentDocument
+    ? "전문 문서 생성 중"
+    : generateState.isGenerating
+      ? "다른 문서 생성 중"
+      : "문서 생성";
 
   return (
     <section className="studio-layout">
@@ -775,13 +784,6 @@ function DocumentStudio({
           </button>
           <button
             type="button"
-            className={tab === "editor" ? "active" : ""}
-            onClick={() => setTab("editor")}
-          >
-            문서 편집
-          </button>
-          <button
-            type="button"
             className={tab === "preview" ? "active" : ""}
             onClick={() => setTab("preview")}
           >
@@ -791,6 +793,9 @@ function DocumentStudio({
 
         {tab === "questions" && (
           <div className="question-workspace">
+            {isGeneratingCurrentDocument && (
+              <DocumentGenerationStatus documentTitle={document.title} />
+            )}
             <div className="document-purpose">
               <strong>심사에서 보는 포인트</strong>
               <span>{document.auditUse}</span>
@@ -837,7 +842,7 @@ function DocumentStudio({
                 disabled={generateState.isGenerating}
                 onClick={() => {
                   onGenerate();
-                  setTab("editor");
+                  setTab("preview");
                 }}
               >
                 {generateState.isGenerating ? (
@@ -845,57 +850,92 @@ function DocumentStudio({
                 ) : (
                   <Sparkles size={18} aria-hidden />
                 )}
-                <span>{generateState.isGenerating ? "생성 중" : "문서 생성"}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {tab === "editor" && (
-          <div className="editor-workspace">
-            {generateState.notice && (
-              <div className="inline-notice">
-                <Brain size={16} aria-hidden />
-                <span>{generateState.notice}</span>
-              </div>
-            )}
-            <textarea
-              className="document-editor"
-              value={draft}
-              placeholder="질문 입력 후 문서를 생성하면 실제 심사용 문서 구조로 초안이 작성됩니다."
-              onChange={(event) => onDraft(event.target.value)}
-            />
-            <div className="button-row">
-              <button
-                className="secondary-button"
-                type="button"
-                disabled={generateState.isGenerating}
-                onClick={onGenerate}
-              >
-                {generateState.isGenerating ? (
-                  <Loader2 className="spin" size={17} aria-hidden />
-                ) : (
-                  <Brain size={17} aria-hidden />
-                )}
-                <span>재생성</span>
-              </button>
-              <button className="primary-button" type="button" onClick={onSave}>
-                <Save size={18} aria-hidden />
-                <span>저장</span>
+                <span>{generateButtonLabel}</span>
               </button>
             </div>
           </div>
         )}
 
         {tab === "preview" && (
-          <MarkdownDocument
-            title={document.title}
-            content={draft || "## 문서 초안 없음\n\n질문 입력 후 문서를 생성하세요."}
-            status={statusLabel(documentStatuses[document.id])}
-          />
+          <div className="preview-workspace">
+            {isGeneratingCurrentDocument && (
+              <DocumentGenerationStatus documentTitle={document.title} />
+            )}
+            {!isGeneratingCurrentDocument && showGenerationNotice && (
+              <div className="inline-notice">
+                <Sparkles size={16} aria-hidden />
+                <span>{generateState.notice}</span>
+              </div>
+            )}
+            <MarkdownDocument
+              title={document.title}
+              content={draft || "## 문서 초안 없음\n\n질문 입력 후 문서를 생성하세요."}
+              status={statusLabel(documentStatuses[document.id])}
+              editable={Boolean(draft.trim())}
+              onChange={onDraft}
+              onSave={onSave}
+            />
+          </div>
         )}
       </section>
     </section>
+  );
+}
+
+function DocumentGenerationStatus({ documentTitle }: { documentTitle: string }) {
+  const steps = useMemo(
+    () => [
+      "회사정보와 질문 답변을 정리하고 있습니다.",
+      "문서별 생성 지침과 ISO 요구사항을 대조하고 있습니다.",
+      "전문 문서 구조와 필수 표를 구성하고 있습니다.",
+      "실무자가 검토할 수 있는 본문을 작성하고 있습니다.",
+      "승인란, 보존기록, 후속 실행 항목을 점검하고 있습니다.",
+      "문서 미리보기에 맞게 정리하고 있습니다."
+    ],
+    []
+  );
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    setStepIndex(0);
+    const interval = window.setInterval(() => {
+      setStepIndex((current) => (current + 1) % steps.length);
+    }, 1400);
+
+    return () => window.clearInterval(interval);
+  }, [documentTitle, steps]);
+
+  return (
+    <div className="generation-status" role="status" aria-live="polite">
+      <div className="generation-status-main">
+        <div className="generation-spinner">
+          <Loader2 className="spin" size={22} aria-hidden />
+        </div>
+        <div>
+          <strong>{documentTitle} 생성 중</strong>
+          <span>{steps[stepIndex]}</span>
+        </div>
+      </div>
+      <div className="generation-progress" aria-hidden>
+        <span style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
+      </div>
+      <div className="generation-steps">
+        {steps.map((step, index) => (
+          <span
+            className={
+              index === stepIndex
+                ? "active"
+                : index < stepIndex
+                  ? "completed"
+                  : ""
+            }
+            key={step}
+          >
+            {step}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1149,16 +1189,178 @@ function CompanySettings({
   onSave: (company: CompanyProfile) => void;
 }) {
   const [draft, setDraft] = useState(company);
-  const fields: Array<[keyof CompanyProfile, string]> = [
-    ["companyName", "회사명"],
-    ["ceo", "대표자"],
-    ["industry", "업종"],
-    ["employees", "직원 수"],
-    ["mainProducts", "주요 제품/서비스"],
-    ["site", "사업장"],
-    ["customers", "주요 고객군"],
-    ["outsource", "외주 범위"]
+  const fieldGroups: Array<{
+    title: string;
+    description: string;
+    fields: Array<{
+      key: keyof CompanyProfile;
+      label: string;
+      placeholder: string;
+      multiline?: boolean;
+      helper?: string;
+    }>;
+  }> = [
+    {
+      title: "기본 식별 정보",
+      description: "문서관리표, 적용범위, 승인란에 반복 사용되는 핵심 정보입니다.",
+      fields: [
+        { key: "companyName", label: "회사명", placeholder: "예: 주식회사 인즈" },
+        { key: "ceo", label: "대표자", placeholder: "예: 홍길동" },
+        { key: "industry", label: "업종", placeholder: "예: SaaS, 소프트웨어 개발" },
+        { key: "employees", label: "직원 수", placeholder: "예: 12명" },
+        {
+          key: "site",
+          label: "사업장",
+          placeholder: "예: 서울 본사, 부산 서비스센터",
+          multiline: true
+        }
+      ]
+    },
+    {
+      title: "인증 범위",
+      description: "적용범위서, 프로세스 맵, 내부심사 계획에 직접 반영됩니다.",
+      fields: [
+        {
+          key: "mainProducts",
+          label: "주요 제품/서비스",
+          placeholder: "예: ISO 문서 자동 생성 웹서비스, 고객지원 서비스",
+          multiline: true
+        },
+        {
+          key: "certificationScope",
+          label: "인증 적용 범위",
+          placeholder: "예: AI 기반 품질문서 생성 및 문서관리 서비스의 기획, 개발, 운영",
+          multiline: true
+        },
+        {
+          key: "excludedScope",
+          label: "적용 제외 범위",
+          placeholder: "예: 하드웨어 제조, 현장 설치 공정은 보유하지 않음",
+          multiline: true
+        },
+        {
+          key: "outsource",
+          label: "외주 범위",
+          placeholder: "예: 클라우드 인프라, 결제, 이메일 발송 서비스",
+          multiline: true
+        }
+      ]
+    },
+    {
+      title: "프로세스와 책임",
+      description: "절차서의 담당, 검토, 승인, 실행 책임을 실제 조직 기준으로 잡습니다.",
+      fields: [
+        {
+          key: "keyProcesses",
+          label: "핵심 프로세스",
+          placeholder: "예: 요구사항 검토, 서비스 개발, 배포, 고객지원, 문서관리",
+          multiline: true
+        },
+        {
+          key: "processOwners",
+          label: "프로세스 책임자",
+          placeholder: "예: 개발팀장, 운영팀장, 품질책임자",
+          multiline: true
+        },
+        {
+          key: "qualityManager",
+          label: "품질책임자",
+          placeholder: "예: 품질책임자 김OO"
+        },
+        {
+          key: "documentManager",
+          label: "문서관리 담당자",
+          placeholder: "예: 문서관리 담당자 이OO"
+        }
+      ]
+    },
+    {
+      title: "고객과 외부 요구",
+      description: "이해관계자, 리스크, 공급업체 관리 문서의 기준이 됩니다.",
+      fields: [
+        {
+          key: "customers",
+          label: "주요 고객군",
+          placeholder: "예: 인증 준비 중소기업, 컨설팅사, 품질관리 담당자",
+          multiline: true
+        },
+        {
+          key: "customerRequirements",
+          label: "고객 요구사항",
+          placeholder: "예: 정확한 문서, 빠른 응답, 보안, 변경 이력 추적",
+          multiline: true
+        },
+        {
+          key: "legalRequirements",
+          label: "법규/규제 요구사항",
+          placeholder: "예: 개인정보보호법, 전자문서 보관 요구, 계약상 보안 조항",
+          multiline: true
+        },
+        {
+          key: "keySuppliers",
+          label: "주요 공급업체",
+          placeholder: "예: 클라우드, AI API, 결제, 이메일 발송 공급자",
+          multiline: true
+        },
+        {
+          key: "supplierEvaluationCriteria",
+          label: "공급업체 평가 기준",
+          placeholder: "예: 서비스 안정성, 보안 수준, 장애 대응, 계약 준수, 비용",
+          multiline: true
+        }
+      ]
+    },
+    {
+      title: "운영 기준",
+      description: "품질방침, 품질목표, 부적합, 내부심사, 경영검토 문서의 깊이를 결정합니다.",
+      fields: [
+        {
+          key: "qualityPolicyDirection",
+          label: "품질방침 방향",
+          placeholder: "예: 고객 요구 충족, 정확성 향상, 안정적 서비스 운영, 지속적 개선",
+          multiline: true
+        },
+        {
+          key: "qualityObjectives",
+          label: "품질목표",
+          placeholder: "예: 고객불만 3영업일 내 95% 처리, 월 1회 문서 검토, 서비스 가용성 99.5%",
+          multiline: true
+        },
+        {
+          key: "recordRetention",
+          label: "기록 보존 기준",
+          placeholder: "예: 승인 문서 최신본 유지, 주요 품질기록 3년 보관, 접근권한 제한",
+          multiline: true
+        },
+        {
+          key: "climateIssues",
+          label: "기후변화 이슈",
+          placeholder: "예: 데이터센터 전력 안정성, 재택근무 연속성, 공급망 장애 가능성",
+          multiline: true
+        },
+        {
+          key: "nonconformityExamples",
+          label: "주요 부적합 사례",
+          placeholder: "예: 잘못된 문서 생성, 고객 요구 누락, 승인 없는 변경, 장애 대응 지연",
+          multiline: true
+        },
+        {
+          key: "internalAuditSchedule",
+          label: "내부심사 일정",
+          placeholder: "예: 연 1회, 인증심사 2주 전, 2026-06-15 예정"
+        },
+        {
+          key: "managementReviewCycle",
+          label: "경영검토 주기",
+          placeholder: "예: 연 1회 이상, 내부심사 완료 후 10일 이내"
+        }
+      ]
+    }
   ];
+
+  useEffect(() => {
+    setDraft(company);
+  }, [company]);
 
   return (
     <section className="company-settings-layout">
@@ -1170,20 +1372,52 @@ function CompanySettings({
           </div>
           <Building2 size={24} aria-hidden />
         </div>
-        <div className="company-grid">
-          {fields.map(([key, label]) => (
-            <label className="field" key={key}>
-              <span>{label}</span>
-              <input
-                value={draft[key]}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    [key]: event.target.value
-                  }))
-                }
-              />
-            </label>
+        <p className="settings-intro">
+          여기에 입력한 내용은 문서별 생성 지침에서 필요한 항목만 골라 참조합니다.
+          값이 자세할수록 적용범위, 절차, 표, 책임자, 기록 기준이 실제 문서처럼 채워집니다.
+        </p>
+        <div className="company-section-list">
+          {fieldGroups.map((group) => (
+            <section className="company-section" key={group.title}>
+              <div className="company-section-heading">
+                <h3>{group.title}</h3>
+                <p>{group.description}</p>
+              </div>
+              <div className="company-grid">
+                {group.fields.map((field) => (
+                  <label
+                    className={field.multiline ? "field field-wide" : "field"}
+                    key={field.key}
+                  >
+                    <span>{field.label}</span>
+                    {field.multiline ? (
+                      <textarea
+                        value={draft[field.key] ?? ""}
+                        placeholder={field.placeholder}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            [field.key]: event.target.value
+                          }))
+                        }
+                      />
+                    ) : (
+                      <input
+                        value={draft[field.key] ?? ""}
+                        placeholder={field.placeholder}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            [field.key]: event.target.value
+                          }))
+                        }
+                      />
+                    )}
+                    {field.helper && <small>{field.helper}</small>}
+                  </label>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
         <div className="button-row">

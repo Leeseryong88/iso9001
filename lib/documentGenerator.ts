@@ -11,6 +11,23 @@ export type CompanyProfile = {
   site: string;
   customers: string;
   outsource: string;
+  certificationScope: string;
+  excludedScope: string;
+  keyProcesses: string;
+  processOwners: string;
+  qualityManager: string;
+  documentManager: string;
+  customerRequirements: string;
+  legalRequirements: string;
+  keySuppliers: string;
+  supplierEvaluationCriteria: string;
+  qualityPolicyDirection: string;
+  qualityObjectives: string;
+  recordRetention: string;
+  climateIssues: string;
+  nonconformityExamples: string;
+  internalAuditSchedule: string;
+  managementReviewCycle: string;
 };
 
 export type GenerateDocumentInput = {
@@ -43,8 +60,66 @@ export function buildStoragePath(
   version: number,
   workspaceId: string
 ) {
-  return `workspaces/${workspaceId}/documents/${documentId}/v${version}.md`;
+  return `workspaces/${workspaceId}/documents/${documentId}/v${version}.pdf`;
 }
+
+const missingValue = "미입력";
+
+const companyFieldLabels: Record<keyof CompanyProfile, string> = {
+  companyName: "회사명",
+  ceo: "대표자",
+  industry: "업종",
+  employees: "직원 수",
+  mainProducts: "주요 제품/서비스",
+  site: "사업장",
+  customers: "주요 고객군",
+  outsource: "외주 범위",
+  certificationScope: "인증 적용 범위",
+  excludedScope: "적용 제외 범위",
+  keyProcesses: "핵심 프로세스",
+  processOwners: "프로세스 책임자",
+  qualityManager: "품질책임자",
+  documentManager: "문서관리 담당자",
+  customerRequirements: "고객 요구사항",
+  legalRequirements: "법규/규제 요구사항",
+  keySuppliers: "주요 공급업체",
+  supplierEvaluationCriteria: "공급업체 평가 기준",
+  qualityPolicyDirection: "품질방침 방향",
+  qualityObjectives: "품질목표",
+  recordRetention: "기록 보존 기준",
+  climateIssues: "기후변화 이슈",
+  nonconformityExamples: "주요 부적합 사례",
+  internalAuditSchedule: "내부심사 일정",
+  managementReviewCycle: "경영검토 주기"
+};
+
+const companyProfileFieldOrder: Array<keyof CompanyProfile> = [
+  "companyName",
+  "ceo",
+  "industry",
+  "employees",
+  "site",
+  "mainProducts",
+  "customers",
+  "outsource",
+  "certificationScope",
+  "excludedScope",
+  "keyProcesses",
+  "processOwners",
+  "qualityManager",
+  "documentManager",
+  "customerRequirements",
+  "legalRequirements",
+  "keySuppliers",
+  "supplierEvaluationCriteria",
+  "qualityPolicyDirection",
+  "qualityObjectives",
+  "recordRetention",
+  "climateIssues",
+  "nonconformityExamples",
+  "internalAuditSchedule",
+  "managementReviewCycle"
+];
 
 export function buildDocumentPrompt({
   document,
@@ -54,7 +129,7 @@ export function buildDocumentPrompt({
   const blueprint = getDocumentBlueprint(document);
   const answersText = document.questions
     .map((question) => {
-      const value = answers[question.id]?.trim() || "미입력";
+      const value = answers[question.id]?.trim() || missingValue;
       return `- ${question.label}: ${value}`;
     })
     .join("\n");
@@ -74,6 +149,21 @@ export function buildDocumentPrompt({
   const acceptanceText = blueprint.acceptanceCriteria
     .map((item) => `- ${item}`)
     .join("\n");
+  const companyReferenceText = blueprint.companyReferences
+    .map((reference) => {
+      const label =
+        companyFieldLabels[reference.field as keyof CompanyProfile] ??
+        reference.label;
+      const value = companyValue(company, reference.field);
+      const missingGuide = value
+        ? ""
+        : " 값이 비어 있으면 사용자 검토 필요 섹션에 확인 항목으로 남긴다.";
+
+      return `- ${reference.label}: 회사정보 "${label}" 값 "${
+        value || missingValue
+      }"을 참조한다. ${reference.instruction}${missingGuide}`;
+    })
+    .join("\n");
 
   return `역할
 너는 ISO 9001 품질경영시스템 문서를 실제 심사 준비용으로 작성하는 전문가다.
@@ -86,10 +176,11 @@ export function buildDocumentPrompt({
 - 모든 문장은 회사가 바로 검토하고 수정할 수 있는 업무 문서 문체로 쓴다.
 
 전문가 수준 작성 지시
-- 최종 초안은 최소 2500자 이상으로 작성한다.
+- 최종 초안은 최소 3500자 이상으로 작성한다.
 - 문서가 절차서인 경우 업무절차는 최소 6단계 이상 작성하고, 각 단계에 담당, 수행내용, 산출기록을 포함한다.
 - 문서가 분석표나 회의록인 경우 핵심 표는 헤더를 제외하고 최소 4행 이상 작성한다.
-- 각 주요 섹션은 제목만 두지 말고 실제 문서에 들어갈 설명 문단을 2문장 이상 작성한다.
+- 각 주요 섹션은 제목만 두지 말고 실제 문서에 들어갈 설명 문단을 3문장 이상 작성한다.
+- 필수 표는 헤더만 만들지 말고 회사정보와 사용자 입력을 반영한 실무 예시 행을 4행 이상 채운다.
 - 표준 조항 번호를 단순 나열하지 말고 조항의 요구 의도를 회사 운영 언어로 풀어 쓴다.
 - 프로세스 접근법, 리스크 기반 사고, PDCA, 문서화된 정보의 유지와 보존, 고객 요구사항, 외부 제공자 관리, 성과평가, 개선의 개념을 문서 성격에 맞게 반영한다.
 - 미입력 정보가 있어도 빈칸만 만들지 말고 합리적인 기본 초안을 작성한 뒤 사용자 검토 필요 섹션에 확인 항목으로 남긴다.
@@ -104,6 +195,7 @@ export function buildDocumentPrompt({
 - 제목은 #, ##, ###만 사용한다.
 - 표는 파이프 문자로 만든 기본 Markdown 표만 사용한다.
 - 장식용 특수문자, 아이콘, 기호, 박스 문자는 넣지 않는다.
+- 체크 표시, 검은 사각형, 삼각형 표시, 원형 강조 표시 같은 장식 문자는 사용하지 않는다.
 - 본문 맨 앞에 문서 제목을 # 제목으로 쓴다.
 
 문서 관리 기준
@@ -125,6 +217,9 @@ ${recordText}
 작성 초점
 ${focusText}
 
+문서별 회사정보 참조 지침
+${companyReferenceText}
+
 완료 품질 기준
 ${acceptanceText}
 
@@ -139,14 +234,7 @@ ${acceptanceText}
 - 연결 실행 항목에는 문서 작성 후 사업장에서 해야 할 후속 활동을 구체적으로 쓴다.
 
 회사 정보
-- 회사명: ${company.companyName || "미입력"}
-- 대표자: ${company.ceo || "미입력"}
-- 업종: ${company.industry || "미입력"}
-- 사업장: ${company.site || "미입력"}
-- 직원 수: ${company.employees || "미입력"}
-- 주요 제품 또는 서비스: ${company.mainProducts || "미입력"}
-- 주요 고객: ${company.customers || "미입력"}
-- 외주 범위: ${company.outsource || "미입력"}
+${buildCompanyProfileText(company)}
 
 문서 정보
 - 문서명: ${document.title}
@@ -163,6 +251,18 @@ ${document.reviewNotes.map((note) => `- ${note}`).join("\n")}
 연결 실행 항목 후보
 ${document.relatedActions.map((action) => `- ${action}`).join("\n")}
 `;
+}
+
+function buildCompanyProfileText(company: CompanyProfile) {
+  return companyProfileFieldOrder
+    .map((field) => `- ${companyFieldLabels[field]}: ${companyValue(company, field) || missingValue}`)
+    .join("\n");
+}
+
+function companyValue(company: CompanyProfile, field: string) {
+  const value = company[field as keyof CompanyProfile];
+
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export function createFallbackDraft({
@@ -183,7 +283,7 @@ export function createFallbackDraft({
     .map((action) => `- ${action}`)
     .join("\n");
   const procedureRows = buildProcedureRows(document, company);
-  const recordRows = buildRecordRows(document);
+  const recordRows = buildRecordRows(document, company);
   const metricRows = buildMetricRows(document);
   const blueprint = getDocumentBlueprint(document);
   const sectionRows = blueprint.requiredSections
@@ -195,6 +295,15 @@ export function createFallbackDraft({
   const criteriaBlock = blueprint.acceptanceCriteria
     .map((item) => `- ${item}`)
     .join("\n");
+  const certificationScope =
+    company.certificationScope ||
+    `${company.companyName || "회사"}의 ${company.mainProducts || "주요 제품 또는 서비스"} 운영 범위`;
+  const excludedScope = company.excludedScope || "별도 적용 제외는 사용자 검토 후 확정";
+  const keyProcesses =
+    company.keyProcesses || "고객 요구 검토, 서비스 제공, 문서관리, 개선관리";
+  const qualityOwner = company.qualityManager || blueprint.ownerRole;
+  const documentOwner = company.documentManager || "문서관리 담당자";
+  const processOwners = company.processOwners || "각 프로세스 책임자";
 
   const content = `# ${document.title}
 
@@ -210,6 +319,8 @@ export function createFallbackDraft({
 | 작성 조직 | ${company.companyName} |
 | 적용 사업장 | ${company.site} |
 | 적용 조항 | ${document.isoClauses.join(", ")} |
+| 인증 적용 범위 | ${certificationScope} |
+| 핵심 프로세스 | ${keyProcesses} |
 | 문서 소유 | ${blueprint.ownerRole} |
 | 승인 권한 | ${blueprint.approverRole} |
 | 검토 주기 | ${blueprint.reviewCycle} |
@@ -227,7 +338,7 @@ ${document.purpose}
 
 ## 2. 적용 범위
 
-본 문서는 ${company.companyName}의 ${company.mainProducts}와 관련된 품질경영시스템 운영에 적용한다. 적용 사업장은 ${company.site}이며, 주요 고객군은 ${company.customers}이다.
+본 문서는 ${certificationScope}에 적용한다. 적용 사업장은 ${company.site || "사용자 확인 필요"}이며, 주요 고객군은 ${company.customers || "사용자 확인 필요"}이다. 적용 제외 범위는 ${excludedScope}로 관리하며, 제외 사유가 있는 경우 표준 요구사항과 실제 업무 보유 여부를 근거로 검토한다. 외주 또는 외부 제공 활동은 ${company.outsource || "사용자 확인 필요"}를 기준으로 포함 여부와 통제 책임을 확인한다.
 
 ## 3. 용어정의
 
@@ -239,9 +350,10 @@ ${document.purpose}
 
 ## 4. 책임과 권한
 
-- 대표자: 품질방침, 주요 품질목표, 경영검토 결과를 승인한다.
-- 품질책임자: 본 문서의 최신본 유지, 운영 기록 확인, 개선 필요사항 추적을 담당한다.
-- 프로세스 담당자: 담당 업무의 실행 결과와 증빙을 정해진 방식으로 기록한다.
+- 대표자: 품질방침, 주요 품질목표, 경영검토 결과를 승인한다. 현재 기준 대표자는 ${company.ceo || "사용자 확인 필요"}이다.
+- 품질책임자: 본 문서의 최신본 유지, 운영 기록 확인, 개선 필요사항 추적을 담당한다. 현재 기준 품질책임자는 ${qualityOwner}이다.
+- 문서관리 담당자: 문서 작성, 배포, 개정, 폐기와 기록 보존 상태를 관리한다. 현재 기준 담당자는 ${documentOwner}이다.
+- 프로세스 담당자: 담당 업무의 실행 결과와 증빙을 정해진 방식으로 기록한다. 현재 기준 책임자는 ${processOwners}이다.
 
 ## 5. 사업장 입력 정보
 
@@ -261,7 +373,7 @@ ${procedureRows}
 
 ## 8. 운영 기준
 
-${company.companyName}는 고객 요구사항, 적용 가능한 법적 및 규제 요구사항, 내부 품질 기준을 충족하기 위해 본 문서의 기준을 수립하고 유지한다. 담당자는 정해진 주기에 따라 실행 결과를 확인하고, 부적합 또는 개선 필요사항이 확인되면 시정조치 절차에 따라 관리한다.
+${company.companyName || "회사는"} 고객 요구사항, 적용 가능한 법적 및 규제 요구사항, 내부 품질 기준을 충족하기 위해 본 문서의 기준을 수립하고 유지한다. 고객 요구사항은 ${company.customerRequirements || "사용자 확인 필요"}를 기준으로 검토하며, 법규 및 규제 요구사항은 ${company.legalRequirements || "사용자 확인 필요"}를 기준으로 반영한다. 담당자는 정해진 주기에 따라 실행 결과를 확인하고, 부적합 또는 개선 필요사항이 확인되면 시정조치 절차에 따라 관리한다.
 
 ## 9. 기록 및 보관
 
@@ -405,18 +517,20 @@ function buildProcedureRows(document: DocumentDefinition, company: CompanyProfil
   return defaultRows.join("\n");
 }
 
-function buildRecordRows(document: DocumentDefinition) {
+function buildRecordRows(document: DocumentDefinition, company: CompanyProfile) {
   const blueprint = getDocumentBlueprint(document);
+  const retention = company.recordRetention || "최신본 또는 법정 보존기간";
+  const recordOwner = company.documentManager || blueprint.ownerRole;
   const blueprintRows = blueprint.recordsToRetain.map(
     (record) =>
-      `| ${record} | ${blueprint.ownerRole} | 최신본 또는 법정 보존기간 | 심사 증빙으로 사용 |`
+      `| ${record} | ${recordOwner} | ${retention} | 심사 증빙으로 사용 |`
   );
 
   return [
     ...blueprintRows,
-    `| ${document.title} | 품질책임자 | 최신본 유지 | 승인본 보관 |`,
-    `| 검토 의견 | 품질책임자 | 3년 | 문서 개정 근거 |`,
-    `| 관련 실행 기록 | 프로세스 담당자 | 3년 | 심사 증빙으로 활용 |`
+    `| ${document.title} | ${recordOwner} | 최신본 유지 | 승인본 보관 |`,
+    `| 검토 의견 | ${company.qualityManager || "품질책임자"} | ${retention} | 문서 개정 근거 |`,
+    `| 관련 실행 기록 | ${company.processOwners || "프로세스 담당자"} | ${retention} | 심사 증빙으로 활용 |`
   ].join("\n");
 }
 

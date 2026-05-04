@@ -18,6 +18,13 @@ export type DocumentBlueprint = {
   evidenceExamples: string[];
   promptFocus: string[];
   acceptanceCriteria: string[];
+  companyReferences: CompanyReference[];
+};
+
+export type CompanyReference = {
+  field: string;
+  label: string;
+  instruction: string;
 };
 
 const commonSections = [
@@ -58,6 +65,29 @@ const commonAcceptanceCriteria = [
   "사용자가 실제로 확인하거나 수행해야 하는 항목을 별도 섹션에 남겨야 합니다.",
   "회사명, 사업장, 제품 또는 서비스 범위가 문서 본문에 반영되어야 합니다.",
   "표준 요구사항과 실제 운영 증빙이 연결되어야 합니다."
+];
+
+const commonCompanyReferences: CompanyReference[] = [
+  {
+    field: "companyName",
+    label: "회사명",
+    instruction: "문서관리표, 목적, 적용범위, 승인란에서 조직명을 일관되게 사용합니다."
+  },
+  {
+    field: "site",
+    label: "사업장",
+    instruction: "적용 장소, 심사 범위, 기록 보관 위치를 설명할 때 반영합니다."
+  },
+  {
+    field: "mainProducts",
+    label: "주요 제품/서비스",
+    instruction: "문서가 적용되는 제품 또는 서비스 범위를 실제 사업 내용에 맞게 씁니다."
+  },
+  {
+    field: "qualityManager",
+    label: "품질책임자",
+    instruction: "작성, 검토, 운영 확인 책임을 배정할 때 우선 참조합니다."
+  }
 ];
 
 const blueprintById: Record<string, Partial<DocumentBlueprint>> = {
@@ -340,6 +370,280 @@ const blueprintById: Record<string, Partial<DocumentBlueprint>> = {
   }
 };
 
+const companyReferencesByDocument: Record<string, CompanyReference[]> = {
+  scope: [
+    ...commonCompanyReferences,
+    {
+      field: "certificationScope",
+      label: "인증 적용 범위",
+      instruction: "심사 신청서에 들어갈 문구처럼 조직, 사업장, 제품/서비스 범위를 한 문장으로 정리합니다."
+    },
+    {
+      field: "excludedScope",
+      label: "적용 제외 범위",
+      instruction: "제외되는 활동이 있다면 ISO 요구사항과 실제 업무 기준으로 타당성 근거를 씁니다."
+    },
+    {
+      field: "keyProcesses",
+      label: "핵심 프로세스",
+      instruction: "적용 범위에 포함되는 운영 흐름과 제외되지 않는 지원 프로세스를 구분합니다."
+    },
+    {
+      field: "outsource",
+      label: "외주 범위",
+      instruction: "외부 제공 활동이 인증 범위에 포함되는지와 통제 책임을 명확히 적습니다."
+    }
+  ],
+  quality_policy: [
+    ...commonCompanyReferences,
+    {
+      field: "ceo",
+      label: "대표자",
+      instruction: "최고경영자의 승인과 품질경영 의지를 표현하는 문장에 반영합니다."
+    },
+    {
+      field: "qualityPolicyDirection",
+      label: "품질방침 방향",
+      instruction: "고객만족, 법규 준수, 지속적 개선의 핵심 메시지로 전개합니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "방침이 고객 요구 충족과 연결된다는 점을 구체적으로 씁니다."
+    },
+    {
+      field: "qualityObjectives",
+      label: "품질목표",
+      instruction: "방침 문구가 측정 가능한 목표로 이어지도록 연결합니다."
+    }
+  ],
+  quality_objectives: [
+    ...commonCompanyReferences,
+    {
+      field: "qualityObjectives",
+      label: "품질목표",
+      instruction: "목표값, 측정 주기, 담당, 미달 시 조치 기준을 가능한 수치 중심으로 작성합니다."
+    },
+    {
+      field: "qualityPolicyDirection",
+      label: "품질방침 방향",
+      instruction: "품질목표가 방침의 중점 방향과 직접 연결되게 씁니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "고객 만족, 납기, 정확도, 서비스 수준 등 측정 가능한 목표로 변환합니다."
+    },
+    {
+      field: "keyProcesses",
+      label: "핵심 프로세스",
+      instruction: "프로세스별 KPI와 담당자를 목표관리표에 반영합니다."
+    }
+  ],
+  context_analysis: [
+    ...commonCompanyReferences,
+    {
+      field: "industry",
+      label: "업종",
+      instruction: "내부/외부 이슈를 업종 특성과 시장 환경에 맞춰 구체화합니다."
+    },
+    {
+      field: "legalRequirements",
+      label: "법규/규제 요구사항",
+      instruction: "외부 이슈와 준수 리스크를 도출할 때 우선 반영합니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "고객 요구 변화가 QMS에 미치는 영향을 분석표에 넣습니다."
+    },
+    {
+      field: "climateIssues",
+      label: "기후변화 이슈",
+      instruction: "Amd 1:2024 요구에 맞춰 관련성, 영향, 대응 필요성을 검토 기록으로 남깁니다."
+    }
+  ],
+  stakeholders: [
+    ...commonCompanyReferences,
+    {
+      field: "customers",
+      label: "주요 고객군",
+      instruction: "주요 이해관계자로 포함하고 요구사항과 대응 프로세스를 연결합니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "계약, 품질, 납기, 보안, 커뮤니케이션 요구를 구체적으로 정리합니다."
+    },
+    {
+      field: "keySuppliers",
+      label: "주요 공급업체",
+      instruction: "외부공급자 요구와 관리 기록을 이해관계자 분석에 포함합니다."
+    },
+    {
+      field: "legalRequirements",
+      label: "법규/규제 요구사항",
+      instruction: "규제기관 또는 법적 요구를 이해관계자 요구사항으로 연결합니다."
+    }
+  ],
+  process_map: [
+    ...commonCompanyReferences,
+    {
+      field: "keyProcesses",
+      label: "핵심 프로세스",
+      instruction: "고객 요구 접수부터 제공, 검토, 개선까지의 흐름을 프로세스 맵의 중심으로 둡니다."
+    },
+    {
+      field: "processOwners",
+      label: "프로세스 책임자",
+      instruction: "각 프로세스의 입력, 활동, 출력, KPI 담당을 책임자 기준으로 배정합니다."
+    },
+    {
+      field: "outsource",
+      label: "외주 범위",
+      instruction: "외부 제공 프로세스와 내부 통제 지점을 프로세스 상호작용표에 반영합니다."
+    }
+  ],
+  risk_opportunity: [
+    ...commonCompanyReferences,
+    {
+      field: "keyProcesses",
+      label: "핵심 프로세스",
+      instruction: "프로세스별 실패 가능성, 영향, 현재 통제 방법을 평가 항목으로 만듭니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "고객 불만, 납기, 정확도, 서비스 수준과 관련된 리스크를 구체화합니다."
+    },
+    {
+      field: "legalRequirements",
+      label: "법규/규제 요구사항",
+      instruction: "준수 실패 리스크와 대응 책임을 평가표에 포함합니다."
+    },
+    {
+      field: "nonconformityExamples",
+      label: "주요 부적합 사례",
+      instruction: "반복 가능성이 있는 부적합을 리스크와 시정조치 후보로 연결합니다."
+    }
+  ],
+  doc_control: [
+    ...commonCompanyReferences,
+    {
+      field: "documentManager",
+      label: "문서관리 담당자",
+      instruction: "문서 작성, 검토, 배포, 개정, 폐기 흐름의 운영 책임자로 반영합니다."
+    },
+    {
+      field: "recordRetention",
+      label: "기록 보존 기준",
+      instruction: "문서와 기록의 보관 위치, 보존 기간, 폐기 기준을 절차서에 구체화합니다."
+    },
+    {
+      field: "certificationScope",
+      label: "인증 적용 범위",
+      instruction: "문서관리 절차가 적용되는 조직과 문서 종류를 범위 기준으로 정리합니다."
+    }
+  ],
+  supplier_control: [
+    ...commonCompanyReferences,
+    {
+      field: "keySuppliers",
+      label: "주요 공급업체",
+      instruction: "공급업체 유형, 제공 범위, 품질 영향도를 평가표에 반영합니다."
+    },
+    {
+      field: "outsource",
+      label: "외주 범위",
+      instruction: "외부 제공 프로세스의 통제 수준과 내부 책임을 절차서에 명시합니다."
+    },
+    {
+      field: "supplierEvaluationCriteria",
+      label: "공급업체 평가 기준",
+      instruction: "선정, 승인, 재평가 기준과 평가 기록 항목을 구체화합니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "외주 결과가 고객 요구 충족에 미치는 영향을 평가 기준에 연결합니다."
+    }
+  ],
+  nonconformity: [
+    ...commonCompanyReferences,
+    {
+      field: "nonconformityExamples",
+      label: "주요 부적합 사례",
+      instruction: "식별, 격리, 원인분석, 시정조치 예시를 회사에서 실제 발생 가능한 유형으로 작성합니다."
+    },
+    {
+      field: "keyProcesses",
+      label: "핵심 프로세스",
+      instruction: "부적합 발생 지점과 재발방지 책임을 프로세스 기준으로 배정합니다."
+    },
+    {
+      field: "customerRequirements",
+      label: "고객 요구사항",
+      instruction: "고객불만 또는 고객 요구 미충족을 부적합 처리 범위에 포함합니다."
+    },
+    {
+      field: "processOwners",
+      label: "프로세스 책임자",
+      instruction: "조치 담당, 완료 기한, 효과성 확인 책임을 실제 책임자 기준으로 둡니다."
+    }
+  ],
+  internal_audit: [
+    ...commonCompanyReferences,
+    {
+      field: "certificationScope",
+      label: "인증 적용 범위",
+      instruction: "내부심사 대상 범위와 제외 범위를 심사계획에 반영합니다."
+    },
+    {
+      field: "keyProcesses",
+      label: "핵심 프로세스",
+      instruction: "프로세스별 심사 질문과 확인 기록란을 체크리스트에 작성합니다."
+    },
+    {
+      field: "processOwners",
+      label: "프로세스 책임자",
+      instruction: "피심사자와 확인 책임을 실제 프로세스 책임자 기준으로 배정합니다."
+    },
+    {
+      field: "internalAuditSchedule",
+      label: "내부심사 일정",
+      instruction: "심사일, 대상, 심사원, 피심사자를 계획표에 반영합니다."
+    }
+  ],
+  management_review: [
+    ...commonCompanyReferences,
+    {
+      field: "ceo",
+      label: "대표자",
+      instruction: "회의 주관자와 최종 승인자로 반영합니다."
+    },
+    {
+      field: "managementReviewCycle",
+      label: "경영검토 주기",
+      instruction: "회의 주기, 입력자료 취합 시점, 후속조치 점검 시점을 기록합니다."
+    },
+    {
+      field: "qualityObjectives",
+      label: "품질목표",
+      instruction: "목표 달성 현황과 미달 조치를 경영검토 입력자료에 포함합니다."
+    },
+    {
+      field: "internalAuditSchedule",
+      label: "내부심사 일정",
+      instruction: "내부심사 결과와 부적합 현황을 검토 안건으로 연결합니다."
+    },
+    {
+      field: "nonconformityExamples",
+      label: "주요 부적합 사례",
+      instruction: "반복 문제, 고객불만, 시정조치 효과성을 회의록에 반영합니다."
+    }
+  ]
+};
+
 export function getDocumentBlueprint(document: DocumentDefinition): DocumentBlueprint {
   const override = blueprintById[document.id] ?? {};
   const defaults: DocumentBlueprint = {
@@ -361,6 +665,7 @@ export function getDocumentBlueprint(document: DocumentDefinition): DocumentBlue
       "모호한 표현보다 담당, 주기, 기록, 산출물을 명확히 씁니다."
     ],
     acceptanceCriteria: commonAcceptanceCriteria,
+    companyReferences: commonCompanyReferences
   };
 
   return {
@@ -380,6 +685,10 @@ export function getDocumentBlueprint(document: DocumentDefinition): DocumentBlue
         "실제 사업장에서 검토하고 승인할 수 있는 문서처럼 작성합니다.",
         "모호한 표현보다 담당, 주기, 기록, 산출물을 명확히 씁니다."
       ],
-    acceptanceCriteria: override.acceptanceCriteria ?? commonAcceptanceCriteria
+    acceptanceCriteria: override.acceptanceCriteria ?? commonAcceptanceCriteria,
+    companyReferences:
+      override.companyReferences ??
+      companyReferencesByDocument[document.id] ??
+      commonCompanyReferences
   };
 }

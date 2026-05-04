@@ -14,6 +14,7 @@ import { deleteObject, ref, uploadBytes, uploadString } from "firebase/storage";
 import type { CompanyProfile } from "@/lib/documentGenerator";
 import { getFirebaseAnalytics, firestore, firebaseStorage } from "@/lib/firebase";
 import type { ActionItem, SavedDocument } from "@/lib/isoData";
+import { createDocumentPdfBlob } from "@/lib/pdfExport";
 import {
   mergeActions,
   type WorkspaceState
@@ -193,12 +194,13 @@ export async function syncDocumentToFirebase(
   document: SavedDocument
 ): Promise<FirebaseSyncResult> {
   try {
-    await uploadString(
+    const pdfBlob = await createDocumentPdfBlob(document);
+
+    await uploadBytes(
       ref(firebaseStorage, document.storagePath),
-      document.content,
-      "raw",
+      pdfBlob,
       {
-        contentType: "text/markdown;charset=utf-8"
+        contentType: "application/pdf"
       }
     );
 
@@ -217,7 +219,7 @@ export async function syncDocumentToFirebase(
       { merge: true }
     );
 
-    return { ok: true, message: "문서를 보관함에 저장했습니다." };
+    return { ok: true, message: "문서를 PDF로 변환해 보관함에 저장했습니다." };
   } catch (error) {
     return {
       ok: false,

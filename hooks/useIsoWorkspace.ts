@@ -37,6 +37,7 @@ import {
 export type GenerateState = {
   isGenerating: boolean;
   notice: string;
+  documentId?: string;
 };
 
 export function useIsoWorkspace(user: User) {
@@ -62,7 +63,8 @@ export function useIsoWorkspace(user: User) {
   const [toast, setToast] = useState("");
   const [generateState, setGenerateState] = useState<GenerateState>({
     isGenerating: false,
-    notice: ""
+    notice: "",
+    documentId: undefined
   });
   const [cloudMessage, setCloudMessage] = useState("보관함 연결 확인 중");
 
@@ -257,7 +259,11 @@ export function useIsoWorkspace(user: User) {
     }
 
     const answers = answersByDocument[documentId] ?? {};
-    setGenerateState({ isGenerating: true, notice: "" });
+    setGenerateState({
+      isGenerating: true,
+      notice: `${document.title} 생성 준비 중입니다.`,
+      documentId
+    });
 
     try {
       const response = await fetch("/api/generate-document", {
@@ -288,7 +294,8 @@ export function useIsoWorkspace(user: User) {
         isGenerating: false,
         notice:
           generated.notice ??
-          "전문 문서 초안을 생성했습니다."
+          "전문 문서 초안을 생성했습니다.",
+        documentId
       });
       setToast(`${document.title} 초안을 생성했습니다.`);
     } catch (error) {
@@ -296,19 +303,19 @@ export function useIsoWorkspace(user: User) {
         error instanceof Error
           ? `AI 문서 생성 실패: ${error.message}`
           : "AI 문서 생성 실패";
-      setGenerateState({ isGenerating: false, notice: message });
+      setGenerateState({ isGenerating: false, notice: message, documentId });
       setToast(message);
     }
   }
 
-  async function saveDocument(documentId: string) {
+  async function saveDocument(documentId: string, contentOverride?: string) {
     const document = documentDefinitions.find((item) => item.id === documentId);
     if (!document) {
       setToast("지원하지 않는 문서입니다.");
       return;
     }
 
-    const content = draftsByDocument[documentId] ?? "";
+    const content = contentOverride ?? draftsByDocument[documentId] ?? "";
     if (!content.trim()) {
       setToast("먼저 AI로 문서를 생성하거나 편집 내용을 입력하세요.");
       return;
@@ -338,6 +345,7 @@ export function useIsoWorkspace(user: User) {
       nextDocument,
       ...current.filter((item) => item.documentType !== documentId)
     ]);
+    setDraft(documentId, content);
     setToast(result.message);
   }
 
