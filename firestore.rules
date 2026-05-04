@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    /** 워크스페이스 ID는 항상 소유자 UID와 동일 (lib/firebaseWorkspace.ts workspaceIdForUser) */
+    function isWorkspaceOwner(workspaceId) {
+      return request.auth != null && request.auth.uid == workspaceId;
+    }
+
+    match /workspaces/{workspaceId} {
+      allow read, write: if isWorkspaceOwner(workspaceId);
+
+      match /members/{memberId} {
+        allow read, write: if isWorkspaceOwner(workspaceId);
+      }
+
+      match /companyProfile/{docId} {
+        allow read, write: if isWorkspaceOwner(workspaceId);
+      }
+
+      match /documents/{documentId} {
+        allow read, write: if isWorkspaceOwner(workspaceId);
+      }
+
+      match /draftState/{docId} {
+        allow read, write: if isWorkspaceOwner(workspaceId);
+      }
+
+      match /actionItems/{actionId} {
+        allow read, write: if isWorkspaceOwner(workspaceId);
+      }
+
+      match /auditPackages/{packageId} {
+        allow read, write: if isWorkspaceOwner(workspaceId);
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "iso-docpilot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules,storage"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "firebase": "^12.0.0",
+    "lucide-react": "^0.468.0",
+    "next": "16.2.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.31.3",
+    "@types/node": "^20.14.10",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.5.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
+  }
+}
