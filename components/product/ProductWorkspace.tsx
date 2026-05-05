@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -33,6 +33,14 @@ import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useIsoWorkspace, type GenerateState } from "@/hooks/useIsoWorkspace";
 import { getDocumentBlueprint } from "@/lib/documentBlueprints";
 import type { CompanyProfile } from "@/lib/documentGenerator";
+import {
+  COMPANY_INDUSTRY_SKIP_STORAGE_KEY,
+  INDUSTRY_OPTIONS,
+  isCompanyProfileBlank,
+  mergeCompanyExample,
+  pickRandomCompanyExample,
+  type IndustryId
+} from "@/lib/companyIndustryExamples";
 import {
   documentDefinitions,
   roadmapSteps,
@@ -180,37 +188,50 @@ function AuthenticatedWorkspace({
 
       <main className="product-main">
         <header className="product-topbar">
-          <div>
-            <p className="eyebrow">ISO 9001:2015 인증 준비</p>
-            <h1>{titleForView(view)}</h1>
-          </div>
-          <div className="product-topbar-actions">
-            <span className="sync-pill">
-              <Database size={15} aria-hidden />
-              인증문서 보관함 연결됨
-            </span>
-            <div className="auth-controls">
-              <span className="user-pill" title={user.email ?? ""}>
-                {user.photoURL ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.photoURL} alt="" />
-                ) : (
-                  <span className="user-initial">
-                    {(user.displayName ?? user.email ?? "U")
-                      .slice(0, 1)
-                      .toUpperCase()}
+          <div className="product-topbar-stack">
+            <p className="eyebrow product-topbar-eyebrow eyebrow-badge">
+              ISO 9001:2015 인증 준비
+            </p>
+            <div className="product-topbar-heading-row">
+              <h1 className="product-topbar-title">{titleForView(view)}</h1>
+              <div className="product-topbar-actions">
+                <span
+                  className="sync-pill"
+                  role="status"
+                  title="인증문서 보관함 연결됨"
+                >
+                  <Database size={15} aria-hidden />
+                  <span className="sync-pill-text">
+                    인증문서 보관함 연결됨
                   </span>
-                )}
-                <span>{user.displayName || user.email}</span>
-              </span>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={onSignOut}
-              >
-                <LogOut size={17} aria-hidden />
-                <span>로그아웃</span>
-              </button>
+                </span>
+                <span
+                  className="user-pill"
+                  title={user.email ?? user.displayName ?? ""}
+                >
+                  {user.photoURL ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.photoURL} alt="" />
+                  ) : (
+                    <span className="user-initial">
+                      {(user.displayName ?? user.email ?? "U")
+                        .slice(0, 1)
+                        .toUpperCase()}
+                    </span>
+                  )}
+                  <span className="user-pill-name">
+                    {user.displayName || user.email}
+                  </span>
+                </span>
+                <button
+                  className="secondary-button topbar-sign-out"
+                  type="button"
+                  onClick={onSignOut}
+                >
+                  <LogOut size={17} aria-hidden />
+                  <span className="topbar-sign-out-label">로그아웃</span>
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -461,7 +482,7 @@ function Overview({
       {!isCompanyReady && (
         <section className="onboarding-panel">
           <div>
-            <p className="eyebrow">처음 시작</p>
+            <p className="eyebrow eyebrow-badge" style={{ marginBottom: 10 }}>처음 시작</p>
             <h2>회사정보를 먼저 입력하면 문서 품질이 좋아집니다</h2>
             <p>
               회사명, 사업장, 제품/서비스, 고객군이 채워져야 AI가 실제 사업장에
@@ -1205,6 +1226,83 @@ function CompanySettings({
   onSave: (company: CompanyProfile) => void;
 }) {
   const [draft, setDraft] = useState(company);
+  const [industryModalOpen, setIndustryModalOpen] = useState(false);
+  const industryModalSourceRef = useRef<"auto" | "manual" | null>(null);
+  const suppressAutoIndustryModalRef = useRef(false);
+
+  const closeIndustryModal = useCallback(
+    (opts?: { skipFutureAuto?: boolean }) => {
+      const source = industryModalSourceRef.current;
+      setIndustryModalOpen(false);
+      if (
+        opts?.skipFutureAuto &&
+        typeof window !== "undefined" &&
+        source === "auto"
+      ) {
+        sessionStorage.setItem(COMPANY_INDUSTRY_SKIP_STORAGE_KEY, "1");
+      }
+      industryModalSourceRef.current = null;
+    },
+    []
+  );
+
+  const openIndustryModalManual = useCallback(() => {
+    industryModalSourceRef.current = "manual";
+    setIndustryModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    setDraft(company);
+  }, [company]);
+
+  useEffect(() => {
+    if (!isCompanyProfileBlank(company)) {
+      suppressAutoIndustryModalRef.current = false;
+    }
+  }, [company]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (suppressAutoIndustryModalRef.current) return;
+    if (
+      isCompanyProfileBlank(company) &&
+      sessionStorage.getItem(COMPANY_INDUSTRY_SKIP_STORAGE_KEY) !== "1"
+    ) {
+      industryModalSourceRef.current = "auto";
+      setIndustryModalOpen(true);
+    }
+  }, [company]);
+
+  useEffect(() => {
+    if (!industryModalOpen || typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [industryModalOpen]);
+
+  useEffect(() => {
+    if (!industryModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeIndustryModal({
+          skipFutureAuto: industryModalSourceRef.current === "auto"
+        });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [industryModalOpen, closeIndustryModal]);
+
+  const handleIndustryPick = useCallback((industryId: IndustryId) => {
+    const template = pickRandomCompanyExample(industryId);
+    setDraft((current) => mergeCompanyExample(current, template));
+    suppressAutoIndustryModalRef.current = true;
+    industryModalSourceRef.current = null;
+    setIndustryModalOpen(false);
+  }, []);
+
   const fieldGroups: Array<{
     title: string;
     description: string;
@@ -1374,19 +1472,26 @@ function CompanySettings({
     }
   ];
 
-  useEffect(() => {
-    setDraft(company);
-  }, [company]);
-
   return (
-    <section className="company-settings-layout">
+    <>
+      <section className="company-settings-layout">
       <section className="product-panel">
-        <div className="panel-header">
+        <div className="panel-header company-settings-panel-header">
           <div>
             <p className="eyebrow">인증 문서 기준정보</p>
             <h2>회사 기본정보</h2>
           </div>
-          <Building2 size={24} aria-hidden />
+          <div className="company-settings-panel-tools">
+            <button
+              type="button"
+              className="ghost-button company-industry-sample-trigger"
+              onClick={openIndustryModalManual}
+            >
+              <Sparkles size={17} aria-hidden />
+              <span>업종별 예시</span>
+            </button>
+            <Building2 size={24} aria-hidden />
+          </div>
         </div>
         <p className="settings-intro">
           여기에 입력한 내용은 문서별 생성 지침에서 필요한 항목만 골라 참조합니다.
@@ -1443,7 +1548,65 @@ function CompanySettings({
           </button>
         </div>
       </section>
-    </section>
+      </section>
+
+      {industryModalOpen ? (
+        <div
+          className="company-industry-modal-backdrop"
+          role="presentation"
+          onClick={() =>
+            closeIndustryModal({
+              skipFutureAuto: industryModalSourceRef.current === "auto"
+            })
+          }
+        >
+          <div
+            className="company-industry-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="company-industry-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="company-industry-modal-head">
+              <div className="company-industry-modal-icon" aria-hidden>
+                <Sparkles size={22} />
+              </div>
+              <h2 id="company-industry-modal-title">
+                예시 작성을 위해 업종을 선택해 주세요
+              </h2>
+              <p className="company-industry-modal-intro">
+                실제 정보와 다를 수 있습니다. 같은 업종을 고를 때도 예시 문구가
+                무작위로 바뀝니다. 수정 후 저장하면 문서 생성에 반영됩니다.
+              </p>
+            </div>
+
+            <div className="company-industry-grid">
+              {INDUSTRY_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className="company-industry-choice"
+                  onClick={() => handleIndustryPick(option.id)}
+                >
+                  <strong>{option.label}</strong>
+                  <span>{option.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="company-industry-modal-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => closeIndustryModal({ skipFutureAuto: true })}
+              >
+                직접 입력할게요
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
