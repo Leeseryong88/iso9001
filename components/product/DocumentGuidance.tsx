@@ -17,13 +17,17 @@ export function DocumentGuidance({
   const readiness = Math.round(
     (answeredCount / Math.max(document.questions.length, 1)) * 100
   );
+  const checkItems = [
+    ...document.reviewNotes,
+    ...document.relatedActions.map((action) => `문서 작성 후 ${action} 항목을 확인합니다.`)
+  ];
 
   return (
     <section className="document-guidance" aria-label="실무 문서 작성 기준">
       <div className="guidance-summary">
         <div>
-          <p className="eyebrow">실무 문서 기준</p>
-          <h3>{blueprint.documentKind}로 사용할 수 있는 구조</h3>
+          <p className="eyebrow">작성 안내</p>
+          <h3>{blueprint.documentKind}에 포함될 주요 구성</h3>
         </div>
         <strong>{readiness}%</strong>
       </div>
@@ -51,7 +55,7 @@ export function DocumentGuidance({
         />
         <GuidanceCard
           icon={Building2}
-          title="회사정보 참조"
+          title="회사정보 반영"
           items={blueprint.companyReferences
             .map((reference) => `${reference.label}: ${reference.instruction}`)
             .slice(0, 4)}
@@ -59,8 +63,8 @@ export function DocumentGuidance({
       </div>
 
       <div className="guidance-checks">
-        {blueprint.acceptanceCriteria.map((criterion) => (
-          <span key={criterion}>{criterion}</span>
+        {checkItems.map((item) => (
+          <span key={item}>{item}</span>
         ))}
       </div>
     </section>

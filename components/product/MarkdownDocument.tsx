@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { FocusEvent } from "react";
-import { PenLine, Save, X } from "lucide-react";
+import { Loader2, PenLine, Save, X } from "lucide-react";
 import type { SavedDocument } from "@/lib/isoData";
 import { normalizeGeneratedMarkdown } from "@/lib/markdownSanitizer";
 
@@ -12,8 +12,9 @@ type MarkdownDocumentProps = {
   status?: string;
   document?: SavedDocument;
   editable?: boolean;
+  showSaveWhenNotEditing?: boolean;
   onChange?: (content: string) => void;
-  onSave?: (content?: string) => void;
+  onSave?: (content?: string) => void | boolean | Promise<void | boolean>;
 };
 
 type TableBlock = {
@@ -56,6 +57,7 @@ export function MarkdownDocument({
   status,
   document,
   editable = false,
+  showSaveWhenNotEditing = true,
   onChange,
   onSave
 }: MarkdownDocumentProps) {
@@ -66,6 +68,7 @@ export function MarkdownDocument({
     initialPreviewBlockCount
   );
   const [isPreparingPreview, setIsPreparingPreview] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const normalizedContent = useMemo(
     () => normalizeGeneratedMarkdown(content),
     [content]
@@ -139,25 +142,50 @@ export function MarkdownDocument({
   }, [isEditing, previewBlocks.length, visibleBlockCount]);
 
   function beginEditing() {
+    if (isSaving) {
+      return;
+    }
+
     setEditableBlocks(prepareEditableBlocks(parseMarkdown(normalizedContent)));
     setIsEditing(true);
   }
 
   function cancelEditing() {
+    if (isSaving) {
+      return;
+    }
+
     setEditableBlocks([]);
     setIsEditing(false);
   }
 
-  function saveCurrentContent() {
-    if (isEditing) {
-      const nextContent = normalizeGeneratedMarkdown(serializeBlocks(editableBlocks));
-      onChange?.(nextContent);
-      setIsEditing(false);
-      onSave?.(nextContent);
+  async function saveCurrentContent() {
+    if (isSaving) {
       return;
     }
 
-    onSave?.(normalizedContent);
+    setIsSaving(true);
+
+    if (isEditing) {
+      const nextContent = normalizeGeneratedMarkdown(serializeBlocks(editableBlocks));
+      onChange?.(nextContent);
+      try {
+        const result = await onSave?.(nextContent);
+        if (result !== false) {
+          setEditableBlocks([]);
+          setIsEditing(false);
+        }
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
+    try {
+      await onSave?.(normalizedContent);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function updateBlockText(blockIndex: number, value: string) {
@@ -284,25 +312,34 @@ export function MarkdownDocument({
                 <button
                   className="secondary-button"
                   type="button"
+                  disabled={isSaving}
                   onClick={cancelEditing}
                 >
                   <X size={17} aria-hidden />
                   <span>취소</span>
                 </button>
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={saveCurrentContent}
-                >
-                  <Save size={17} aria-hidden />
-                  <span>저장</span>
-                </button>
+                {showSaveWhenNotEditing && (
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={isSaving}
+                    onClick={saveCurrentContent}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="spin" size={17} aria-hidden />
+                    ) : (
+                      <Save size={17} aria-hidden />
+                    )}
+                    <span>{isSaving ? "저장 중" : "저장"}</span>
+                  </button>
+                )}
               </>
             ) : (
               <>
                 <button
                   className="secondary-button"
                   type="button"
+                  disabled={isSaving}
                   onClick={beginEditing}
                 >
                   <PenLine size={17} aria-hidden />
@@ -311,10 +348,15 @@ export function MarkdownDocument({
                 <button
                   className="primary-button"
                   type="button"
+                  disabled={isSaving}
                   onClick={saveCurrentContent}
                 >
-                  <Save size={17} aria-hidden />
-                  <span>저장</span>
+                  {isSaving ? (
+                    <Loader2 className="spin" size={17} aria-hidden />
+                  ) : (
+                    <Save size={17} aria-hidden />
+                  )}
+                  <span>{isSaving ? "저장 중" : "저장"}</span>
                 </button>
               </>
             )}

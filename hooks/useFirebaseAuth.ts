@@ -20,9 +20,16 @@ export type FirebaseAuthState = {
   signOutUser: () => Promise<void>;
 };
 
+let cachedUser: User | null = null;
+let hasResolvedAuthState = false;
+
 export function useFirebaseAuth(): FirebaseAuthState {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(
+    () => cachedUser ?? firebaseAuth.currentUser
+  );
+  const [isLoading, setIsLoading] = useState(
+    () => !hasResolvedAuthState && !firebaseAuth.currentUser
+  );
   const [error, setError] = useState("");
   const provider = useMemo(() => {
     const googleProvider = new GoogleAuthProvider();
@@ -37,6 +44,8 @@ export function useFirebaseAuth(): FirebaseAuthState {
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
       window.clearTimeout(loadingFallback);
+      cachedUser = nextUser;
+      hasResolvedAuthState = true;
       setUser(nextUser);
       setIsLoading(false);
     });
@@ -54,6 +63,8 @@ export function useFirebaseAuth(): FirebaseAuthState {
     try {
       await setPersistence(firebaseAuth, browserLocalPersistence);
       await signInWithPopup(firebaseAuth, provider);
+      cachedUser = firebaseAuth.currentUser;
+      hasResolvedAuthState = true;
     } catch (signInError) {
       setError(firebaseAuthErrorMessage(signInError));
     } finally {
@@ -64,6 +75,8 @@ export function useFirebaseAuth(): FirebaseAuthState {
   async function signOutUser() {
     setError("");
     await signOut(firebaseAuth);
+    cachedUser = null;
+    hasResolvedAuthState = true;
   }
 
   return {

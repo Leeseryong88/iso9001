@@ -3253,6 +3253,23 @@ body {
   min-height: 40px;
 }
 
+.field-example input,
+.field-example textarea {
+  border-color: #ccd5df;
+  background: #f1f3f5;
+}
+
+.field-example input:focus,
+.field-example textarea:focus {
+  background: #f1f3f5;
+}
+
+.field-example input::placeholder,
+.field-example textarea::placeholder {
+  color: #7a8796;
+  opacity: 1;
+}
+
 .field textarea {
   min-height: 104px;
 }
@@ -4505,4 +4522,172 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #0d7258;
+}
+
+/* Certification navigation */
+.certification-nav.product-nav {
+  gap: 8px;
+}
+
+.certification-nav.product-nav button {
+  min-height: 58px;
+  align-items: center;
+  padding: 9px 11px;
+}
+
+.certification-nav.product-nav button > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.certification-nav.product-nav button strong,
+.certification-nav.product-nav button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.certification-nav.product-nav button strong {
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.certification-nav.product-nav button small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.certification-nav.product-nav button.planned {
+  border-color: transparent;
+  background: transparent;
+  color: #6d7884;
+}
+
+.certification-nav.product-nav button.planned:hover {
+  border-color: #d7e0e8;
+  background: #f6f8fa;
+  color: #1f3548;
+}
+
+.certification-nav.product-nav button.planned::after {
+  content: "예정";
+  margin-left: auto;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #6c7784;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.workspace-tabs {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workspace-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1 0 126px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 13px;
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-tabs button.active {
+  background: #0d6649;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(13, 102, 73, 0.2);
+}
+
+@media (max-width: 760px) {
+  .product-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .certification-nav.product-nav {
+    position: static;
+    display: flex;
+    grid-template-columns: none;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 2px;
+    border-top: 0;
+    background: transparent;
+    box-shadow: none;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .certification-nav.product-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .certification-nav.product-nav button {
+    display: flex;
+    justify-content: flex-start;
+    flex: 0 0 142px;
+    min-height: 58px;
+    padding: 9px 10px;
+    text-align: left;
+  }
+
+  .certification-nav.product-nav button svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .certification-nav.product-nav button span {
+    display: grid;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .workspace-tabs {
+    margin-top: 4px;
+    padding: 4px;
+  }
+
+  .workspace-tabs button {
+    flex: 0 0 auto;
+    min-width: 126px;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 420px) {
+  .certification-nav.product-nav {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .certification-nav.product-nav button {
+    min-height: 56px;
+    font-size: 12px;
+  }
 }

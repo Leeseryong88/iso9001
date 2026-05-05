@@ -1,5 +1,5 @@
-import { ProductWorkspace } from "@/components/product/ProductWorkspace";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <ProductWorkspace />;
+  redirect("/overview");
 }

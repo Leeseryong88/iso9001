@@ -294,15 +294,15 @@ export function useIsoWorkspace(user: User) {
         isGenerating: false,
         notice:
           generated.notice ??
-          "전문 문서 초안을 생성했습니다.",
+          "문서 초안을 생성했습니다.",
         documentId
       });
       setToast(`${document.title} 초안을 생성했습니다.`);
     } catch (error) {
       const message =
         error instanceof Error
-          ? `AI 문서 생성 실패: ${error.message}`
-          : "AI 문서 생성 실패";
+          ? `문서 초안 생성 실패: ${error.message}`
+          : "문서 초안 생성 실패";
       setGenerateState({ isGenerating: false, notice: message, documentId });
       setToast(message);
     }
@@ -317,7 +317,7 @@ export function useIsoWorkspace(user: User) {
 
     const content = contentOverride ?? draftsByDocument[documentId] ?? "";
     if (!content.trim()) {
-      setToast("먼저 AI로 문서를 생성하거나 편집 내용을 입력하세요.");
+      setToast("먼저 문서 초안을 생성하거나 편집 내용을 입력하세요.");
       return;
     }
 
@@ -370,6 +370,41 @@ export function useIsoWorkspace(user: User) {
       current.map((item) => (item.id === documentId ? updated : item))
     );
     setToast("문서를 승인 완료로 변경했습니다.");
+  }
+
+  async function updateSavedDocument(documentId: string, content: string) {
+    const document = savedDocuments.find((item) => item.id === documentId);
+    if (!document) {
+      setToast("수정할 문서를 찾을 수 없습니다.");
+      return false;
+    }
+
+    if (!content.trim()) {
+      setToast("문서 내용이 비어 있습니다.");
+      return false;
+    }
+
+    const nextVersion = document.version + 1;
+    const updated: SavedDocument = {
+      ...document,
+      status: "review",
+      version: nextVersion,
+      content,
+      updatedAt: compactDate(),
+      storagePath: buildStoragePath(document.documentType, nextVersion, workspaceId)
+    };
+    const result = await syncDocumentToFirebase(workspaceId, updated);
+    if (!result.ok) {
+      setToast(result.message);
+      return false;
+    }
+
+    setSavedDocuments((current) =>
+      current.map((item) => (item.id === documentId ? updated : item))
+    );
+    setDraft(document.documentType, content);
+    setToast("문서를 수정해 저장했습니다.");
+    return true;
   }
 
   async function deleteDocument(documentId: string) {
@@ -567,6 +602,7 @@ ${documents || "저장된 문서가 없습니다."}
     generateDocument,
     saveDocument,
     approveDocument,
+    updateSavedDocument,
     deleteDocument,
     updateAction,
     uploadEvidenceFiles,

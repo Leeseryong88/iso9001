@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import type { LucideIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
 import {
   Archive,
   Building2,
@@ -37,7 +38,6 @@ import {
   COMPANY_INDUSTRY_SKIP_STORAGE_KEY,
   INDUSTRY_OPTIONS,
   isCompanyProfileBlank,
-  mergeCompanyExample,
   pickRandomCompanyExample,
   type IndustryId
 } from "@/lib/companyIndustryExamples";
@@ -50,9 +50,21 @@ import {
   type SavedDocument,
   type Status
 } from "@/lib/isoData";
+import {
+  viewFromPathname,
+  workspaceViewRoutes,
+  type View
+} from "@/lib/workspaceRoutes";
 
-type View = "overview" | "studio" | "actions" | "vault" | "company";
 type StudioTab = "questions" | "preview";
+type CertificationId =
+  | "iso9001"
+  | "iso14001"
+  | "iso45001"
+  | "iso27001"
+  | "iso13485"
+  | "iso22000"
+  | "aiAuditor";
 
 const navItems: Array<{ id: View; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "준비 현황", icon: LayoutDashboard },
@@ -62,9 +74,71 @@ const navItems: Array<{ id: View; label: string; icon: LucideIcon }> = [
   { id: "company", label: "회사설정", icon: Settings }
 ];
 
-const filters = ["전체", "필수", "AI", "실행 필요", "검토 필요"];
+const certificationItems: Array<{
+  id: CertificationId;
+  label: string;
+  summary: string;
+  icon: LucideIcon;
+  isAvailable: boolean;
+}> = [
+  {
+    id: "iso9001",
+    label: "ISO 9001",
+    summary: "품질경영",
+    icon: ShieldCheck,
+    isAvailable: true
+  },
+  {
+    id: "iso14001",
+    label: "ISO 14001",
+    summary: "환경경영",
+    icon: Building2,
+    isAvailable: false
+  },
+  {
+    id: "iso45001",
+    label: "ISO 45001",
+    summary: "안전보건",
+    icon: ClipboardCheck,
+    isAvailable: false
+  },
+  {
+    id: "iso27001",
+    label: "ISO 27001",
+    summary: "정보보안",
+    icon: LockKeyhole,
+    isAvailable: false
+  },
+  {
+    id: "iso13485",
+    label: "ISO 13485",
+    summary: "의료기기",
+    icon: FileText,
+    isAvailable: false
+  },
+  {
+    id: "iso22000",
+    label: "ISO 22000",
+    summary: "식품안전",
+    icon: CheckCircle2,
+    isAvailable: false
+  },
+  {
+    id: "aiAuditor",
+    label: "AI모의 심사관",
+    summary: "심사 예행연습",
+    icon: Search,
+    isAvailable: false
+  }
+];
 
-export function ProductWorkspace() {
+const filters = ["전체", "필수", "자동 생성", "실행 필요", "검토 필요"];
+
+export function ProductWorkspace({
+  initialView = "overview"
+}: {
+  initialView?: View;
+} = {}) {
   const auth = useFirebaseAuth();
 
   if (auth.isLoading && !auth.user) {
@@ -89,6 +163,7 @@ export function ProductWorkspace() {
 
   return (
     <AuthenticatedWorkspace
+      initialView={initialView}
       user={auth.user}
       onSignOut={auth.signOutUser}
     />
@@ -96,14 +171,18 @@ export function ProductWorkspace() {
 }
 
 function AuthenticatedWorkspace({
+  initialView,
   user,
   onSignOut
 }: {
+  initialView: View;
   user: User;
   onSignOut: () => Promise<void>;
 }) {
   const workspace = useIsoWorkspace(user);
-  const [view, setView] = useState<View>("overview");
+  const pathname = usePathname();
+  const routeView = viewFromPathname(pathname);
+  const [view, setViewState] = useState<View>(() => routeView ?? initialView);
   const [selectedDocumentId, setSelectedDocumentId] = useState("quality_policy");
   const [selectedActionId, setSelectedActionId] = useState(
     workspace.actions[0]?.id ?? ""
@@ -111,6 +190,7 @@ function AuthenticatedWorkspace({
   const [selectedSavedId, setSelectedSavedId] = useState(
     workspace.savedDocuments[0]?.id ?? ""
   );
+  const [certificationNotice, setCertificationNotice] = useState("");
 
   const selectedDocument =
     documentDefinitions.find((document) => document.id === selectedDocumentId) ??
@@ -127,9 +207,58 @@ function AuthenticatedWorkspace({
       workspace.company.site.trim()
   );
 
+  const setView = useCallback(
+    (nextView: View) => {
+      setViewState(nextView);
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== workspaceViewRoutes[nextView]
+      ) {
+        window.history.pushState(null, "", workspaceViewRoutes[nextView]);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (routeView && routeView !== view) {
+      setViewState(routeView);
+    }
+  }, [routeView, view]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextView = viewFromPathname(window.location.pathname);
+      if (nextView) {
+        setViewState(nextView);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (!certificationNotice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setCertificationNotice(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [certificationNotice]);
+
   function openDocument(documentId: string) {
     setSelectedDocumentId(documentId);
     setView("studio");
+  }
+
+  function selectCertification(item: (typeof certificationItems)[number]) {
+    if (item.isAvailable) {
+      setCertificationNotice("");
+      return;
+    }
+
+    setCertificationNotice(`${item.label} 기능은 구현 예정입니다.`);
   }
 
   if (workspace.isLoadingWorkspace || workspace.workspaceError) {
@@ -157,18 +286,26 @@ function AuthenticatedWorkspace({
           </div>
         </div>
 
-        <nav className="product-nav" aria-label="주요 화면">
-          {navItems.map((item) => {
+        <nav className="product-nav certification-nav" aria-label="인증 규격">
+          {certificationItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
-                className={view === item.id ? "active" : ""}
+                className={[
+                  item.isAvailable ? "active" : "",
+                  item.isAvailable ? "" : "planned"
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 type="button"
                 key={item.id}
-                onClick={() => setView(item.id)}
+                onClick={() => selectCertification(item)}
               >
                 <Icon size={18} aria-hidden />
-                <span>{item.label}</span>
+                <span>
+                  <strong>{item.label}</strong>
+                  <small>{item.summary}</small>
+                </span>
               </button>
             );
           })}
@@ -190,7 +327,7 @@ function AuthenticatedWorkspace({
         <header className="product-topbar">
           <div className="product-topbar-stack">
             <p className="eyebrow product-topbar-eyebrow eyebrow-badge">
-              ISO 9001:2015 인증 준비
+              ISO 9001:2015 품질경영
             </p>
             <div className="product-topbar-heading-row">
               <h1 className="product-topbar-title">{titleForView(view)}</h1>
@@ -233,6 +370,22 @@ function AuthenticatedWorkspace({
                 </button>
               </div>
             </div>
+            <nav className="workspace-tabs" aria-label="ISO 9001 작업 메뉴">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    className={view === item.id ? "active" : ""}
+                    type="button"
+                    key={item.id}
+                    onClick={() => setView(item.id)}
+                  >
+                    <Icon size={17} aria-hidden />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
           </div>
         </header>
 
@@ -284,7 +437,7 @@ function AuthenticatedWorkspace({
             savedDocuments={workspace.savedDocuments}
             selectedSaved={selectedSaved}
             onSelect={setSelectedSavedId}
-            onOpenDocument={openDocument}
+            onUpdate={workspace.updateSavedDocument}
             onApprove={workspace.approveDocument}
             onDelete={workspace.deleteDocument}
             onSavePackage={workspace.saveAuditPackage}
@@ -299,10 +452,10 @@ function AuthenticatedWorkspace({
         )}
       </main>
 
-      {workspace.toast && (
+      {(workspace.toast || certificationNotice) && (
         <div className="toast" role="status">
           <CheckCircle2 size={18} aria-hidden />
-          {workspace.toast}
+          {workspace.toast || certificationNotice}
         </div>
       )}
     </div>
@@ -485,8 +638,8 @@ function Overview({
             <p className="eyebrow eyebrow-badge" style={{ marginBottom: 10 }}>처음 시작</p>
             <h2>회사정보를 먼저 입력하면 문서 품질이 좋아집니다</h2>
             <p>
-              회사명, 사업장, 제품/서비스, 고객군이 채워져야 AI가 실제 사업장에
-              맞는 문서관리표와 절차서를 작성할 수 있습니다.
+              회사명, 사업장, 제품/서비스, 고객군을 채우면 실제 사업장에
+              맞는 문서관리표와 절차서 초안을 만들 수 있습니다.
             </p>
           </div>
           <div className="onboarding-actions">
@@ -699,7 +852,7 @@ function DocumentStudio({
       const matchesFilter =
         filter === "전체" ||
         (filter === "필수" && item.requiredLevel === "필수") ||
-        (filter === "AI" && item.aiGeneratable) ||
+        (filter === "자동 생성" && item.aiGeneratable) ||
         (filter === "실행 필요" && item.directActionRequired) ||
         (filter === "검토 필요" && documentStatuses[item.id] === "review");
 
@@ -716,7 +869,7 @@ function DocumentStudio({
     Boolean(generateState.notice) &&
     (!generateState.documentId || generateState.documentId === document.id);
   const generateButtonLabel = isGeneratingCurrentDocument
-    ? "전문 문서 생성 중"
+    ? "문서 초안 생성 중"
     : generateState.isGenerating
       ? "다른 문서 생성 중"
       : "문서 생성";
@@ -726,7 +879,7 @@ function DocumentStudio({
       <aside className="studio-catalog product-panel">
         <div className="catalog-heading">
           <div>
-            <p className="eyebrow">생성 문서 목록</p>
+            <p className="eyebrow">문서 목록</p>
             <h2>문서 선택</h2>
           </div>
           <span>{filteredDocuments.length}개</span>
@@ -818,7 +971,7 @@ function DocumentStudio({
               <DocumentGenerationStatus documentTitle={document.title} />
             )}
             <div className="document-purpose">
-              <strong>심사에서 보는 포인트</strong>
+              <strong>확인받는 항목</strong>
               <span>{document.auditUse}</span>
             </div>
             <DocumentGuidance
@@ -907,8 +1060,8 @@ function DocumentGenerationStatus({ documentTitle }: { documentTitle: string }) 
   const steps = useMemo(
     () => [
       "회사정보와 질문 답변을 정리하고 있습니다.",
-      "문서별 생성 지침과 ISO 요구사항을 대조하고 있습니다.",
-      "전문 문서 구조와 필수 표를 구성하고 있습니다.",
+      "문서 구조와 ISO 요구사항을 대조하고 있습니다.",
+      "문서 구성과 필수 표를 준비하고 있습니다.",
       "실무자가 검토할 수 있는 본문을 작성하고 있습니다.",
       "승인란, 보존기록, 후속 실행 항목을 점검하고 있습니다.",
       "문서 미리보기를 준비하고 있습니다."
@@ -1107,7 +1260,7 @@ function Vault({
   savedDocuments,
   selectedSaved,
   onSelect,
-  onOpenDocument,
+  onUpdate,
   onApprove,
   onDelete,
   onSavePackage
@@ -1115,7 +1268,7 @@ function Vault({
   savedDocuments: SavedDocument[];
   selectedSaved?: SavedDocument;
   onSelect: (id: string) => void;
-  onOpenDocument: (id: string) => void;
+  onUpdate: (id: string, content: string) => Promise<boolean>;
   onApprove: (id: string) => void;
   onDelete: (id: string) => void;
   onSavePackage: () => void;
@@ -1174,14 +1327,6 @@ function Vault({
               </div>
               <div className="button-row">
                 <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => onOpenDocument(selectedSaved.documentType)}
-                >
-                  <PenLine size={17} aria-hidden />
-                  <span>수정</span>
-                </button>
-                <button
                   className="primary-button"
                   type="button"
                   onClick={() => onApprove(selectedSaved.id)}
@@ -1205,6 +1350,11 @@ function Vault({
               content={selectedSaved.content}
               status={statusLabel(selectedSaved.status)}
               document={selectedSaved}
+              editable={Boolean(selectedSaved.content.trim())}
+              showSaveWhenNotEditing={false}
+              onSave={(content) =>
+                onUpdate(selectedSaved.id, content ?? selectedSaved.content)
+              }
             />
           </>
         ) : (
@@ -1226,6 +1376,8 @@ function CompanySettings({
   onSave: (company: CompanyProfile) => void;
 }) {
   const [draft, setDraft] = useState(company);
+  const [examplePlaceholders, setExamplePlaceholders] =
+    useState<Partial<CompanyProfile>>({});
   const [industryModalOpen, setIndustryModalOpen] = useState(false);
   const industryModalSourceRef = useRef<"auto" | "manual" | null>(null);
   const suppressAutoIndustryModalRef = useRef(false);
@@ -1253,6 +1405,7 @@ function CompanySettings({
 
   useEffect(() => {
     setDraft(company);
+    setExamplePlaceholders({});
   }, [company]);
 
   useEffect(() => {
@@ -1296,8 +1449,7 @@ function CompanySettings({
   }, [industryModalOpen, closeIndustryModal]);
 
   const handleIndustryPick = useCallback((industryId: IndustryId) => {
-    const template = pickRandomCompanyExample(industryId);
-    setDraft((current) => mergeCompanyExample(current, template));
+    setExamplePlaceholders(pickRandomCompanyExample(industryId));
     suppressAutoIndustryModalRef.current = true;
     industryModalSourceRef.current = null;
     setIndustryModalOpen(false);
@@ -1343,7 +1495,7 @@ function CompanySettings({
         {
           key: "certificationScope",
           label: "인증 적용 범위",
-          placeholder: "예: AI 기반 품질문서 생성 및 문서관리 서비스의 기획, 개발, 운영",
+          placeholder: "예: 품질문서 작성 및 문서관리 서비스의 기획, 개발, 운영",
           multiline: true
         },
         {
@@ -1413,7 +1565,7 @@ function CompanySettings({
         {
           key: "keySuppliers",
           label: "주요 공급업체",
-          placeholder: "예: 클라우드, AI API, 결제, 이메일 발송 공급자",
+          placeholder: "예: 클라우드, 외부 API, 결제, 이메일 발송 공급자",
           multiline: true
         },
         {
@@ -1494,7 +1646,7 @@ function CompanySettings({
           </div>
         </div>
         <p className="settings-intro">
-          여기에 입력한 내용은 문서별 생성 지침에서 필요한 항목만 골라 참조합니다.
+          여기에 입력한 내용은 문서 작성에 필요한 항목만 골라 반영합니다.
           값이 자세할수록 적용범위, 절차, 표, 책임자, 기록 기준이 실제 문서처럼 채워집니다.
         </p>
         <div className="company-section-list">
@@ -1505,38 +1657,49 @@ function CompanySettings({
                 <p>{group.description}</p>
               </div>
               <div className="company-grid">
-                {group.fields.map((field) => (
-                  <label
-                    className={field.multiline ? "field field-wide" : "field"}
-                    key={field.key}
-                  >
-                    <span>{field.label}</span>
-                    {field.multiline ? (
-                      <textarea
-                        value={draft[field.key] ?? ""}
-                        placeholder={field.placeholder}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            [field.key]: event.target.value
-                          }))
-                        }
-                      />
-                    ) : (
-                      <input
-                        value={draft[field.key] ?? ""}
-                        placeholder={field.placeholder}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            [field.key]: event.target.value
-                          }))
-                        }
-                      />
-                    )}
-                    {field.helper && <small>{field.helper}</small>}
-                  </label>
-                ))}
+                {group.fields.map((field) => {
+                  const value = draft[field.key] ?? "";
+                  const examplePlaceholder = examplePlaceholders[field.key] ?? "";
+                  const isShowingExample =
+                    Boolean(examplePlaceholder) && !value.trim();
+                  const fieldClassName = [
+                    "field",
+                    field.multiline ? "field-wide" : "",
+                    isShowingExample ? "field-example" : ""
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <label className={fieldClassName} key={field.key}>
+                      <span>{field.label}</span>
+                      {field.multiline ? (
+                        <textarea
+                          value={value}
+                          placeholder={examplePlaceholder || field.placeholder}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              [field.key]: event.target.value
+                            }))
+                          }
+                        />
+                      ) : (
+                        <input
+                          value={value}
+                          placeholder={examplePlaceholder || field.placeholder}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              [field.key]: event.target.value
+                            }))
+                          }
+                        />
+                      )}
+                      {field.helper && <small>{field.helper}</small>}
+                    </label>
+                  );
+                })}
               </div>
             </section>
           ))}
@@ -1572,11 +1735,11 @@ function CompanySettings({
                 <Sparkles size={22} />
               </div>
               <h2 id="company-industry-modal-title">
-                예시 작성을 위해 업종을 선택해 주세요
+                예시 표시를 위해 업종을 선택해 주세요
               </h2>
               <p className="company-industry-modal-intro">
-                실제 정보와 다를 수 있습니다. 같은 업종을 고를 때도 예시 문구가
-                무작위로 바뀝니다. 수정 후 저장하면 문서 생성에 반영됩니다.
+                선택한 예시는 입력칸의 회색 안내 문구로만 표시됩니다. 직접 입력하면
+                해당 예시는 사라지고, 저장한 값만 문서 생성에 반영됩니다.
               </p>
             </div>
 

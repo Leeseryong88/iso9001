@@ -100,7 +100,7 @@ export const roadmapSteps: RoadmapStep[] = [
   {
     id: "profile",
     title: "회사 기본정보 정리",
-    summary: "인증 범위와 AI 문서 생성에 반복 사용될 회사 정보를 확정합니다.",
+    summary: "인증 범위와 문서 초안 작성에 반복 사용될 회사 정보를 확정합니다.",
     deliverables: ["회사 프로필", "사업장 정보", "제품/서비스 설명"],
     completion: 0
   },
@@ -210,7 +210,7 @@ export const documentDefinitions: DocumentDefinition[] = [
         id: "improvement_focus",
         label: "지속적 개선 중점 영역",
         type: "textarea",
-        placeholder: "예: AI 생성 정확도, 고객 응답 시간, 서비스 가용성"
+        placeholder: "예: 문서 초안 정확도, 고객 응답 시간, 서비스 가용성"
       },
       {
         id: "approval_owner",
@@ -270,7 +270,7 @@ export const documentDefinitions: DocumentDefinition[] = [
         id: "external",
         label: "외부 이슈",
         type: "textarea",
-        placeholder: "예: AI 규제 변화, 고객 보안 요구 강화"
+        placeholder: "예: 기술 규제 변화, 고객 보안 요구 강화"
       },
       {
         id: "internal",
@@ -363,7 +363,7 @@ export const documentDefinitions: DocumentDefinition[] = [
         id: "risks",
         label: "예상 리스크",
         type: "textarea",
-        placeholder: "예: AI 출력 오류, 클라우드 장애, 보안 사고"
+        placeholder: "예: 문서 출력 오류, 클라우드 장애, 보안 사고"
       },
       {
         id: "opportunities",
@@ -504,7 +504,7 @@ export const documentDefinitions: DocumentDefinition[] = [
         placeholder: "예: 2026-06-15"
       }
     ],
-    reviewNotes: ["AI는 계획과 체크리스트를 만들 수 있지만 실제 심사는 수행해야 합니다."],
+    reviewNotes: ["계획과 체크리스트를 만든 뒤 실제 내부심사를 수행하고 결과 기록을 남겨야 합니다."],
     relatedActions: ["내부심사 수행", "부적합 및 개선사항 등록"]
   },
   {
@@ -629,7 +629,7 @@ export function statusLabel(status: Status) {
   const labels: Record<Status, string> = {
     not_started: "미시작",
     input: "정보 입력",
-    generated: "AI 생성",
+    generated: "초안 생성",
     review: "검토 필요",
     approved: "승인 완료",
     action_required: "실행 필요",

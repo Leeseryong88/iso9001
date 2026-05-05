@@ -37,7 +37,7 @@ const commonSections = [
   "업무 절차",
   "관련 기록",
   "성과지표",
-  "사용자 검토 필요",
+  "담당자 확인 필요",
   "연결 실행 항목",
   "승인란"
 ];
@@ -61,10 +61,10 @@ const commonTables: DocumentTableSpec[] = [
 ];
 
 const commonAcceptanceCriteria = [
-  "인증 합격을 보장하는 문구가 없어야 합니다.",
-  "사용자가 실제로 확인하거나 수행해야 하는 항목을 별도 섹션에 남겨야 합니다.",
-  "회사명, 사업장, 제품 또는 서비스 범위가 문서 본문에 반영되어야 합니다.",
-  "표준 요구사항과 실제 운영 증빙이 연결되어야 합니다."
+  "인증 결과를 단정하는 표현이 없는지 검토합니다.",
+  "담당자가 실제로 확인하거나 수행해야 하는 항목을 별도 섹션에 남깁니다.",
+  "회사명, 사업장, 제품 또는 서비스 범위가 문서 본문에 반영되어 있는지 확인합니다.",
+  "표준 요구사항과 실제 운영 증빙이 연결되어 있는지 확인합니다."
 ];
 
 const commonCompanyReferences: CompanyReference[] = [
@@ -105,7 +105,7 @@ const blueprintById: Record<string, Partial<DocumentBlueprint>> = {
       "제품 및 서비스 범위",
       "적용 제외와 타당성",
       "관련 프로세스",
-      "사용자 검토 필요",
+      "담당자 확인 필요",
       "승인란"
     ],
     requiredTables: [
@@ -135,7 +135,7 @@ const blueprintById: Record<string, Partial<DocumentBlueprint>> = {
       "고객만족과 지속적 개선 방향",
       "품질목표 연결",
       "공지 및 이해 확인 방법",
-      "사용자 검토 필요",
+      "담당자 확인 필요",
       "연결 실행 항목",
       "승인란"
     ],
@@ -168,7 +168,7 @@ const blueprintById: Record<string, Partial<DocumentBlueprint>> = {
       "품질목표 관리표",
       "추진계획",
       "실적 확인 및 조치",
-      "사용자 검토 필요",
+      "담당자 확인 필요",
       "연결 실행 항목",
       "승인란"
     ],

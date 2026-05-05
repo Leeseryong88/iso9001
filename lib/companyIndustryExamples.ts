@@ -76,7 +76,7 @@ const EXAMPLES: Record<IndustryId, CompanyProfile[]> = {
       excludedScope:
         "타사 하드웨어 제조, 현장 설치 공사, 금융·결제 데이터 직접 보관은 해당 금융사 책임",
       outsource:
-        "클라우드 IaaS/PaaS, 결제대행, 이메일·SMS 발송, 고객 VOC 분석 AI API",
+        "클라우드 IaaS/PaaS, 결제대행, 이메일·SMS 발송, 고객 VOC 분석 외부 API",
       keyProcesses:
         "요구사항 검토 → 설계·개발 → 코드리뷰·테스트 → 배포 → 모니터링 → 장애대응 → 문서관리",
       processOwners:
