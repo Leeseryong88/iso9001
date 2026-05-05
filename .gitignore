@@ -1,4 +1,5 @@
 node_modules
+.edge-auth-desktop
 .next
 out
 dist
